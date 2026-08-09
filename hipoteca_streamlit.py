@@ -187,7 +187,7 @@ with st.sidebar:
 
     st.subheader("El banco")
     cantidad_banco = st.number_input("Cantidad que te da el banco (€)", value=200_000, step=1_000)
-    tipo_interes = st.slider("Tipo de interés anual (%)", min_value=0.5, max_value=8.0, value=3.5, step=0.05) / 100
+    tipo_interes = st.slider("Tipo de interés anual (%)", min_value=2.0, max_value=4.0, value=3.5, step=0.01) / 100
     plazo_banco = st.slider("Plazo banco (años)", min_value=20, max_value=40, value=30, step=1)
 
     st.subheader("El tío")
@@ -195,7 +195,7 @@ with st.sidebar:
 
     st.subheader("Tus ingresos")
     ingresos = st.number_input("Ingresos netos mensuales (€)", value=2_999, step=50)
-    max_pct = st.slider("Máxima cuota banco (% de ingresos)", min_value=20, max_value=60, value=35, step=5) / 100
+    max_pct = st.slider("Máxima cuota banco (% de ingresos)", min_value=30, max_value=50, value=35, step=1) / 100
 
     st.subheader("Otra hipoteca (madre/hermana)")
     st.markdown("*La paga tu madre, pero el banco te resta capacidad por ser titular.*")
@@ -204,7 +204,7 @@ with st.sidebar:
     num_partes = st.number_input("Número de titulares", value=3, step=1, min_value=1)
 
     st.subheader("¿Cancelar la hipoteca de la madre?")
-    cancelar_madre = st.checkbox("Sí, cancelarla (le doy 31.000 € y me los devuelve)", value=False)
+    cancelar_madre = st.checkbox(f"Sí, cancelarla (le doy {fmt(otra_resto)} y me los devuelve)", value=False)
     if cancelar_madre:
         plazo_devol_madre = st.slider("Plazo devolución madre (años)", min_value=3, max_value=15, value=10, step=1)
     else:
