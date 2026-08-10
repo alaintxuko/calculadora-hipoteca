@@ -31,8 +31,8 @@ st.set_page_config(page_title="Calculadora Hipotecaria", layout="wide")
 #  SUPABASE - Configuracion
 # =============================================================================
 
-SUPABASE_URL = "https://zdailxuegjakemvepsnf.supabase.co/rest/v1/"   # <-- CAMBIA ESTO si no usas secrets
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkYWlseHVlZ2pha2VtdmVwc25mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNTE1MTMsImV4cCI6MjEwMTkyNzUxM30.rumAc2-2j1q1keUHbh7WaYJ4FFsNWFEOMjmBIZIObO4"                        # <-- CAMBIA ESTO si no usas secrets
+SUPABASE_URL = "https://TU-PROJECT.supabase.co"   # <-- CAMBIA ESTO si no usas secrets
+SUPABASE_KEY = "TU-ANON-KEY"                        # <-- CAMBIA ESTO si no usas secrets
 
 
 def get_supabase_client():
@@ -45,9 +45,12 @@ def get_supabase_client():
             url = st.secrets["supabase"]["url"]
             key = st.secrets["supabase"]["key"]
         except Exception:
-            # Fallback a variables hardcodeadas (para pruebas locales sin secrets.toml)
+            # Fallback a variables hardcodeadas
             url = SUPABASE_URL
             key = SUPABASE_KEY
+
+        # Asegurar que la URL no termine en /
+        url = url.rstrip("/")
 
         client = create_client(url, key)
         return client
@@ -56,28 +59,57 @@ def get_supabase_client():
         return None
 
 
+def diagnosticar_supabase():
+    """Muestra información de diagnóstico sobre la conexión a Supabase."""
+    try:
+        from supabase import create_client
+        try:
+            url = st.secrets["supabase"]["url"].rstrip("/")
+            key = st.secrets["supabase"]["key"]
+            source = "Streamlit Secrets"
+        except Exception:
+            url = SUPABASE_URL.rstrip("/")
+            key = SUPABASE_KEY
+            source = "Variables del script"
+
+        st.write(f"**URL:** `{url}`")
+        st.write(f"**Key (primeros 20 chars):** `{key[:20]}...`")
+        st.write(f"**Fuente:** {source}")
+
+        client = create_client(url, key)
+
+        # Intentar listar tablas
+        try:
+            response = client.rpc("get_schema", {}).execute()
+            st.write(f"**Respuesta RPC:** {response}")
+        except Exception as e:
+            st.write(f"**RPC falló (normal):** {e}")
+
+        return client
+    except Exception as e:
+        st.error(f"Diagnóstico falló: {e}")
+        return None
+
+
 def guardar_en_supabase(datos):
     """Guarda un escenario en Supabase."""
     client = get_supabase_client()
     if client is None:
-        return False
+        return False, "No se pudo conectar a Supabase. Revisa la URL y la API key."
     try:
-        # Eliminar campos que no existen en la tabla
-        datos_limpio = {k: v for k, v in datos.items() if k != "nombre" or k in [
-            "id", "nombre", "precio_piso", "gastos", "aportacion", "cantidad_banco",
-            "tipo_interes", "plazo_banco", "plazo_tio", "ingresos", "max_pct",
-            "otra_cuota", "otra_resto", "num_partes", "cancelar_madre",
-            "plazo_devol_madre", "bonif_nomina_activa", "bonif_nomina_pct",
-            "bonif_hogar_activa", "bonif_hogar_pct", "bonif_hogar_coste",
-            "bonif_vida_activa", "bonif_vida_pct", "bonif_vida_coste",
-            "bonif_otro_activa", "bonif_otro_pct", "bonif_otro_coste",
-            "cuota_banco", "cuota_tio", "coste_seguros", "total_mensual", "cumple"
-        ]}
-        response = client.table("escenarios").insert(datos_limpio).execute()
-        return True
+        response = client.table("escenarios").insert(datos).execute()
+        return True, None
     except Exception as e:
-        st.error(f"Error guardando en Supabase: {e}")
-        return False
+        error_str = str(e)
+        if "PGRST125" in error_str or "Invalid path" in error_str:
+            return False, "PGRST125: PostgREST no encuentra la tabla. Posibles causas:
+1. La tabla 'escenarios' no existe en el schema 'public'
+2. La URL del proyecto es incorrecta
+3. Hay un problema con la API key"
+        elif "relation" in error_str.lower() and "does not exist" in error_str.lower():
+            return False, "La tabla 'escenarios' no existe en Supabase. Créala primero."
+        else:
+            return False, f"Error de Supabase: {error_str}"
 
 
 def cargar_desde_supabase():
@@ -89,7 +121,13 @@ def cargar_desde_supabase():
         response = client.table("escenarios").select("*").order("created_at", desc=True).execute()
         return response.data
     except Exception as e:
-        st.error(f"Error cargando desde Supabase: {e}")
+        error_str = str(e)
+        if "PGRST125" in error_str or "Invalid path" in error_str:
+            st.error("Supabase: RLS está activado sin políticas. Desactívalo en Table Editor → escenarios → toggle RLS.")
+        elif "relation" in error_str.lower() and "does not exist" in error_str.lower():
+            st.error("Supabase: La tabla 'escenarios' no existe. Créala primero.")
+        else:
+            st.error(f"Error cargando desde Supabase: {error_str}")
         return []
 
 
@@ -518,9 +556,14 @@ if st.session_state.pagina == "Calcular":
     st.divider()
 
     # --- GUARDAR EN SUPABASE ---
-    st.header("💾 Guardar escenario en Supabase")
+    st.header("💾 Guardar escenario")
+
+    # Diagnóstico de conexión (colapsado por defecto)
+    with st.expander("🔧 Diagnóstico de conexión a Supabase"):
+        diagnosticar_supabase()
+
     nombre_guardar = st.text_input("Nombre del escenario", placeholder="Ej: Oferta Santander marzo")
-    if st.button("💾 Guardar", type="primary"):
+    if st.button("💾 Guardar en Supabase", type="primary"):
         if nombre_guardar.strip() == "":
             st.error("Introduce un nombre para guardar")
         else:
@@ -540,10 +583,32 @@ if st.session_state.pagina == "Calcular":
                 "coste_seguros": round(esc["coste_seguros_mes"], 2), "total_mensual": round(esc["gasto_mensual"], 2),
                 "cumple": esc["cumple"],
             }
-            if guardar_en_supabase(datos_guardar):
-                st.success(f"Escenario '{nombre_guardar.strip()}' guardado en Supabase")
+            ok, error_msg = guardar_en_supabase(datos_guardar)
+            if ok:
+                st.success(f"Escenario '{nombre_guardar.strip()}' guardado en Supabase ✅")
             else:
-                st.error("No se pudo guardar. Revisa la configuración de Supabase.")
+                st.error(f"No se pudo guardar en Supabase: {error_msg}")
+                st.warning("Puedes copiar los datos manualmente desde abajo.")
+
+    # Fallback: mostrar JSON copiable siempre
+    with st.expander("📋 Ver datos como JSON (copia manual si Supabase falla)"):
+        datos_json = {
+            "nombre": nombre_guardar if nombre_guardar else "sin_nombre",
+            "precio_piso": precio_piso, "gastos": gastos, "aportacion": aportacion,
+            "cantidad_banco": cantidad_banco, "tipo_interes": round(tipo_interes_base * 100, 2),
+            "plazo_banco": plazo_banco, "plazo_tio": plazo_tio,
+            "ingresos": ingresos, "max_pct": int(max_pct * 100),
+            "otra_cuota": otra_cuota, "otra_resto": otra_resto, "num_partes": num_partes,
+            "cancelar_madre": cancelar_madre, "plazo_devol_madre": plazo_devol_madre,
+            "bonif_nomina_activa": bonif_nomina_activa, "bonif_nomina_pct": round(bonif_nomina_pct * 100, 2),
+            "bonif_hogar_activa": bonif_hogar_activa, "bonif_hogar_pct": round(bonif_hogar_pct * 100, 2), "bonif_hogar_coste": bonif_hogar_coste,
+            "bonif_vida_activa": bonif_vida_activa, "bonif_vida_pct": round(bonif_vida_pct * 100, 2), "bonif_vida_coste": bonif_vida_coste,
+            "bonif_otro_activa": bonif_otro_activa, "bonif_otro_pct": round(bonif_otro_pct * 100, 2), "bonif_otro_coste": bonif_otro_coste,
+            "cuota_banco": round(esc["cuota_banco"], 2), "cuota_tio": round(esc["cuota_tio"], 2),
+            "coste_seguros": round(esc["coste_seguros_mes"], 2), "total_mensual": round(esc["gasto_mensual"], 2),
+            "cumple": esc["cumple"],
+        }
+        st.code(json.dumps(datos_json, indent=2, ensure_ascii=False), language="json")
 
     st.divider()
     st.caption("App generada con Streamlit + Supabase.")
