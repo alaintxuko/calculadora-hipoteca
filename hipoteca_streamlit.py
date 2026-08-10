@@ -19,6 +19,7 @@ Para desplegar en Streamlit Cloud:
 """
 
 import math
+import json
 import os
 from datetime import datetime
 import numpy as np
@@ -49,8 +50,8 @@ def get_supabase_client():
             url = SUPABASE_URL
             key = SUPABASE_KEY
 
-        # Asegurar que la URL no termine en /
-        url = url.rstrip("/")
+        # Limpiar URL: quitar /rest/v1 y / al final
+        url = url.replace("/rest/v1", "").rstrip("/")
 
         client = create_client(url, key)
         return client
@@ -64,11 +65,11 @@ def diagnosticar_supabase():
     try:
         from supabase import create_client
         try:
-            url = st.secrets["supabase"]["url"].rstrip("/")
+            url = st.secrets["supabase"]["url"].replace("/rest/v1", "").rstrip("/")
             key = st.secrets["supabase"]["key"]
             source = "Streamlit Secrets"
         except Exception:
-            url = SUPABASE_URL.rstrip("/")
+            url = SUPABASE_URL.replace("/rest/v1", "").rstrip("/")
             key = SUPABASE_KEY
             source = "Variables del script"
 
