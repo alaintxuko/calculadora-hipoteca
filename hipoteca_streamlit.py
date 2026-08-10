@@ -102,10 +102,7 @@ def guardar_en_supabase(datos):
     except Exception as e:
         error_str = str(e)
         if "PGRST125" in error_str or "Invalid path" in error_str:
-            return False, "PGRST125: PostgREST no encuentra la tabla. Posibles causas:
-1. La tabla 'escenarios' no existe en el schema 'public'
-2. La URL del proyecto es incorrecta
-3. Hay un problema con la API key"
+            return False, "PGRST125: PostgREST no encuentra la tabla. Posibles causas: (1) La tabla 'escenarios' no existe en el schema 'public', (2) La URL del proyecto es incorrecta, (3) Hay un problema con la API key."
         elif "relation" in error_str.lower() and "does not exist" in error_str.lower():
             return False, "La tabla 'escenarios' no existe en Supabase. Créala primero."
         else:
