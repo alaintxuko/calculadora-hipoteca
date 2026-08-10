@@ -31,8 +31,8 @@ st.set_page_config(page_title="Calculadora Hipotecaria", layout="wide")
 #  SUPABASE - Configuracion
 # =============================================================================
 
-SUPABASE_URL = "https://TU-PROJECT.supabase.co"   # <-- CAMBIA ESTO si no usas secrets
-SUPABASE_KEY = "TU-ANON-KEY"                        # <-- CAMBIA ESTO si no usas secrets
+SUPABASE_URL = "https://zdailxuegjakemvepsnf.supabase.co/rest/v1/"   # <-- CAMBIA ESTO si no usas secrets
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkYWlseHVlZ2pha2VtdmVwc25mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNTE1MTMsImV4cCI6MjEwMTkyNzUxM30.rumAc2-2j1q1keUHbh7WaYJ4FFsNWFEOMjmBIZIObO4"                        # <-- CAMBIA ESTO si no usas secrets
 
 
 def get_supabase_client():
