@@ -622,7 +622,8 @@ if st.session_state.pagina == "Calcular":
             datos_guardar = {
                 "nombre": nombre_limpio,
                 "precio_piso": precio_piso, "gastos": gastos, "aportacion": aportacion,
-                "cantidad_banco": cantidad_banco, "tipo_interes": round(tipo_interes_base * 100, 2),
+                "cantidad_banco": cantidad_banco, "cantidad_tio": esc["cantidad_tio"],
+                "tipo_interes": round(tipo_interes_base * 100, 2),
                 "plazo_banco": plazo_banco, "plazo_tio": plazo_tio,
                 "ingresos": ingresos, "max_pct": int(max_pct * 100),
                 "otra_cuota": otra_cuota, "otra_resto": otra_resto, "num_partes": num_partes,
@@ -633,6 +634,9 @@ if st.session_state.pagina == "Calcular":
                 "bonif_otro_activa": bonif_otro_activa, "bonif_otro_pct": round(bonif_otro_pct * 100, 2), "bonif_otro_coste": bonif_otro_coste,
                 "cuota_banco": round(esc["cuota_banco"], 2), "cuota_tio": round(esc["cuota_tio"], 2),
                 "coste_seguros": round(esc["coste_seguros_mes"], 2), "total_mensual": round(esc["gasto_mensual"], 2),
+                "intereses_totales": round(esc["intereses_totales_banco"], 2),
+                "total_pagado_banco": round(esc["total_pagado_banco"], 2),
+                "total_pagado_tio": round(esc["total_pagado_tio"], 2),
                 "cumple": esc["cumple"],
             }
             ok, error_msg = guardar_en_supabase(datos_guardar)
@@ -686,64 +690,58 @@ else:
         st.divider()
 
         for r in records:
-            tipo_interes = float(r.get("tipo_interes", 3.5)) / 100
-            descuento = 0.0
-            if bool(r.get("bonif_nomina_activa", False)):
-                descuento += float(r.get("bonif_nomina_pct", 0)) / 100
-            if bool(r.get("bonif_hogar_activa", False)):
-                descuento += float(r.get("bonif_hogar_pct", 0)) / 100
-            if bool(r.get("bonif_vida_activa", False)):
-                descuento += float(r.get("bonif_vida_pct", 0)) / 100
-            if bool(r.get("bonif_otro_activa", False)):
-                descuento += float(r.get("bonif_otro_pct", 0)) / 100
-            tipo_bonif = max(0.0, tipo_interes - descuento)
-
-            cantidad_banco = float(r.get("cantidad_banco", 200_000))
-            plazo_banco = int(r.get("plazo_banco", 30))
-            plazo_tio = int(r.get("plazo_tio", 10))
-            cuota_banco = cuota_hipoteca_fija(cantidad_banco, tipo_bonif, plazo_banco)
-
-            cantidad_tio = float(r.get("cantidad_tio", 0))
-            cuota_tio = cuota_sin_interes(cantidad_tio, plazo_tio)
-
-            total_pagado_banco = cuota_banco * plazo_banco * 12
-            intereses_totales = total_pagado_banco - cantidad_banco
-            total_pagado_tio = cuota_tio * plazo_tio * 12
-
             nombre = r.get("nombre", "Sin nombre")
 
+            # Usar datos guardados directamente si existen, si no recalcular
+            cuota_banco = float(r.get("cuota_banco", 0))
+            cuota_tio = float(r.get("cuota_tio", 0))
+            intereses = float(r.get("intereses_totales", 0))
+            cantidad_banco = float(r.get("cantidad_banco", 0))
+            tipo_interes = float(r.get("tipo_interes", 0))
+            plazo_banco = int(r.get("plazo_banco", 0))
+
+            # Si no hay intereses guardados (datos antiguos), recalcular
+            if intereses == 0 and cuota_banco > 0 and cantidad_banco > 0 and plazo_banco > 0:
+                total_pagado = cuota_banco * plazo_banco * 12
+                intereses = total_pagado - cantidad_banco
+
             with st.container(border=True):
-                col1, col2, col3, col4, col5, col6 = st.columns([2.2, 1.1, 1.1, 1.1, 1.1, 0.8])
+                # Fila 1: Nombre y datos clave
+                c1, c2, c3, c4, c5, c6, c7 = st.columns([2.5, 1.0, 1.0, 1.0, 1.0, 0.7, 0.7])
 
-                with col1:
-                    st.markdown(f"**{nombre}**")
-                    st.caption(f"Tipo: {tipo_bonif*100:.2f}% | Plazo: {plazo_banco} años")
+                with c1:
+                    st.markdown(f"<span style='font-size:0.9rem; font-weight:600'>{nombre}</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-size:0.75rem; color:#666'>Pedido: {fmt(cantidad_banco)} | Tipo: {tipo_interes:.2f}% | {plazo_banco}años</span>", unsafe_allow_html=True)
 
-                with col2:
-                    st.metric("Cuota total", fmt(cuota_banco + cuota_tio))
+                with c2:
+                    st.markdown(f"<span style='font-size:0.75rem; color:#666'>Total/mes</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-size:0.9rem; font-weight:600'>{fmt(cuota_banco + cuota_tio)}</span>", unsafe_allow_html=True)
 
-                with col3:
-                    st.metric("Banco", fmt(cuota_banco))
+                with c3:
+                    st.markdown(f"<span style='font-size:0.75rem; color:#666'>Banco</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-size:0.9rem'>{fmt(cuota_banco)}</span>", unsafe_allow_html=True)
 
-                with col4:
-                    st.metric("Tío", fmt(cuota_tio))
+                with c4:
+                    st.markdown(f"<span style='font-size:0.75rem; color:#666'>Tío</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-size:0.9rem'>{fmt(cuota_tio)}</span>", unsafe_allow_html=True)
 
-                with col5:
-                    st.metric("Intereses", fmt(intereses_totales))
+                with c5:
+                    st.markdown(f"<span style='font-size:0.75rem; color:#666'>Intereses</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-size:0.9rem; color:#e74c3c'>{fmt(intereses)}</span>", unsafe_allow_html=True)
 
-                with col6:
-                    if st.button("📂 Cargar", key=f"cargar_{nombre}"):
+                with c6:
+                    if st.button("📂", key=f"cargar_{nombre}", help="Cargar escenario"):
                         st.session_state.cargar_nombre = nombre
                         st.session_state.pagina = "Calcular"
                         st.rerun()
 
-                # Botón eliminar debajo del cargar
-                if st.button("🗑️ Eliminar", key=f"eliminar_{nombre}"):
-                    if eliminar_de_supabase(nombre):
-                        st.success(f"'{nombre}' eliminado")
-                        st.rerun()
-                    else:
-                        st.error("No se pudo eliminar")
+                with c7:
+                    if st.button("🗑️", key=f"eliminar_{nombre}", help="Eliminar escenario"):
+                        if eliminar_de_supabase(nombre):
+                            st.success(f"'{nombre}' eliminado")
+                            st.rerun()
+                        else:
+                            st.error("No se pudo eliminar")
 
     st.divider()
     if st.button("➕ Crear nuevo escenario"):
