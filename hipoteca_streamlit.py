@@ -92,6 +92,30 @@ def diagnosticar_supabase():
         return None
 
 
+def existe_escenario(nombre):
+    """Comprueba si ya existe un escenario con ese nombre."""
+    client = get_supabase_client()
+    if client is None:
+        return False
+    try:
+        response = client.table("escenarios").select("nombre").eq("nombre", nombre).execute()
+        return len(response.data) > 0
+    except Exception:
+        return False
+
+
+def eliminar_por_nombre(nombre):
+    """Elimina un escenario por nombre (usado para sobreescribir)."""
+    client = get_supabase_client()
+    if client is None:
+        return False
+    try:
+        client.table("escenarios").delete().eq("nombre", nombre).execute()
+        return True
+    except Exception:
+        return False
+
+
 def guardar_en_supabase(datos):
     """Guarda un escenario en Supabase."""
     client = get_supabase_client()
@@ -267,6 +291,12 @@ def calcular_escenario(precio_piso, gastos, aportacion, cantidad_banco, tipo_int
             "cancelar": cancelar_madre
         })
 
+    # Totales pagados
+    total_pagado_banco = cuota_banco * meses_banco
+    intereses_totales_banco = total_pagado_banco - cantidad_banco
+    total_pagado_tio = cuota_tio * meses_tio
+    total_pagado_seguros = coste_seguros_mes * meses_banco
+
     return {
         "total_necesario": total_necesario,
         "mi_aportacion": mi_aportacion,
@@ -287,10 +317,15 @@ def calcular_escenario(precio_piso, gastos, aportacion, cantidad_banco, tipo_int
         "cumple": cumple,
         "periodos": periodos,
         "meses_banco": meses_banco,
+        "meses_tio": meses_tio,
         "cancelar_madre": cancelar_madre,
         "tipo_interes_base": tipo_interes_base,
         "tipo_interes_bonif": tipo_interes,
         "descuento_total": descuento_total,
+        "total_pagado_banco": total_pagado_banco,
+        "intereses_totales_banco": intereses_totales_banco,
+        "total_pagado_tio": total_pagado_tio,
+        "total_pagado_seguros": total_pagado_seguros,
     }
 
 
@@ -529,6 +564,13 @@ if st.session_state.pagina == "Calcular":
     c5.metric("Tío te da", fmt(esc["cantidad_tio"]))
     c6.metric("Entrada disponible", fmt(esc["dinero_disponible"]))
 
+    st.subheader("💰 Totales a pagar")
+    t1, t2, t3, t4 = st.columns(4)
+    t1.metric("Pedido al banco", fmt(esc["cantidad_banco"]))
+    t2.metric("Pagado al banco", fmt(esc["total_pagado_banco"]))
+    t3.metric("Intereses banco", fmt(esc["intereses_totales_banco"]), help="Diferencia entre lo pagado y lo pedido")
+    t4.metric("Pagado al tío", fmt(esc["total_pagado_tio"]))
+
     st.divider()
 
     col_izq, col_der = st.columns([1, 1])
@@ -561,12 +603,24 @@ if st.session_state.pagina == "Calcular":
         diagnosticar_supabase()
 
     nombre_guardar = st.text_input("Nombre del escenario", placeholder="Ej: Oferta Santander marzo")
+
+    # Verificar si ya existe
+    nombre_limpio = nombre_guardar.strip()
+    ya_existe = existe_escenario(nombre_limpio) if nombre_limpio else False
+
+    if ya_existe:
+        st.warning(f"⚠️ Ya existe un escenario llamado '{nombre_limpio}'. Pulsa Guardar para sobreescribirlo.")
+
     if st.button("💾 Guardar en Supabase", type="primary"):
-        if nombre_guardar.strip() == "":
+        if nombre_limpio == "":
             st.error("Introduce un nombre para guardar")
         else:
+            # Si existe, eliminar primero
+            if ya_existe:
+                eliminar_por_nombre(nombre_limpio)
+
             datos_guardar = {
-                "nombre": nombre_guardar.strip(),
+                "nombre": nombre_limpio,
                 "precio_piso": precio_piso, "gastos": gastos, "aportacion": aportacion,
                 "cantidad_banco": cantidad_banco, "tipo_interes": round(tipo_interes_base * 100, 2),
                 "plazo_banco": plazo_banco, "plazo_tio": plazo_tio,
@@ -583,7 +637,10 @@ if st.session_state.pagina == "Calcular":
             }
             ok, error_msg = guardar_en_supabase(datos_guardar)
             if ok:
-                st.success(f"Escenario '{nombre_guardar.strip()}' guardado en Supabase ✅")
+                if ya_existe:
+                    st.success(f"Escenario '{nombre_limpio}' sobreescrito en Supabase ✅")
+                else:
+                    st.success(f"Escenario '{nombre_limpio}' guardado en Supabase ✅")
             else:
                 st.error(f"No se pudo guardar en Supabase: {error_msg}")
                 st.warning("Puedes copiar los datos manualmente desde abajo.")
@@ -643,47 +700,50 @@ else:
 
             cantidad_banco = float(r.get("cantidad_banco", 200_000))
             plazo_banco = int(r.get("plazo_banco", 30))
+            plazo_tio = int(r.get("plazo_tio", 10))
             cuota_banco = cuota_hipoteca_fija(cantidad_banco, tipo_bonif, plazo_banco)
 
-            ingresos = float(r.get("ingresos", 2_999))
-            max_pct = float(r.get("max_pct", 35)) / 100
-            resta = 0.0 if bool(r.get("cancelar_madre", False)) else float(r.get("otra_cuota", 529)) / float(r.get("num_partes", 3))
-            max_efectivo = ingresos * max_pct - resta
-            cumple = cuota_banco <= max_efectivo
+            cantidad_tio = float(r.get("cantidad_tio", 0))
+            cuota_tio = cuota_sin_interes(cantidad_tio, plazo_tio)
+
+            total_pagado_banco = cuota_banco * plazo_banco * 12
+            intereses_totales = total_pagado_banco - cantidad_banco
+            total_pagado_tio = cuota_tio * plazo_tio * 12
+
             nombre = r.get("nombre", "Sin nombre")
 
             with st.container(border=True):
-                col1, col2, col3, col4, col5, col6 = st.columns([2, 1.2, 1.2, 1.2, 1, 1])
+                col1, col2, col3, col4, col5, col6 = st.columns([2.2, 1.1, 1.1, 1.1, 1.1, 0.8])
 
                 with col1:
                     st.markdown(f"**{nombre}**")
-                    st.caption(f"Banco: {fmt(cantidad_banco)} | Tipo: {tipo_bonif*100:.2f}% | Plazo: {plazo_banco} años")
+                    st.caption(f"Tipo: {tipo_bonif*100:.2f}% | Plazo: {plazo_banco} años")
 
                 with col2:
-                    st.metric("Cuota banco", fmt(cuota_banco))
+                    st.metric("Cuota total", fmt(cuota_banco + cuota_tio))
 
                 with col3:
-                    st.metric("Capacidad", fmt(max_efectivo))
+                    st.metric("Banco", fmt(cuota_banco))
 
                 with col4:
-                    if cumple:
-                        st.success("✅ Cumple")
-                    else:
-                        st.error("❌ No cumple")
+                    st.metric("Tío", fmt(cuota_tio))
 
                 with col5:
+                    st.metric("Intereses", fmt(intereses_totales))
+
+                with col6:
                     if st.button("📂 Cargar", key=f"cargar_{nombre}"):
                         st.session_state.cargar_nombre = nombre
                         st.session_state.pagina = "Calcular"
                         st.rerun()
 
-                with col6:
-                    if st.button("🗑️ Eliminar", key=f"eliminar_{nombre}"):
-                        if eliminar_de_supabase(nombre):
-                            st.success(f"'{nombre}' eliminado")
-                            st.rerun()
-                        else:
-                            st.error("No se pudo eliminar")
+                # Botón eliminar debajo del cargar
+                if st.button("🗑️ Eliminar", key=f"eliminar_{nombre}"):
+                    if eliminar_de_supabase(nombre):
+                        st.success(f"'{nombre}' eliminado")
+                        st.rerun()
+                    else:
+                        st.error("No se pudo eliminar")
 
     st.divider()
     if st.button("➕ Crear nuevo escenario"):
