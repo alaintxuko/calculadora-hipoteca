@@ -381,11 +381,135 @@ if "cargar_nombre" not in st.session_state:
 
 
 # =============================================================================
+#  VALORES POR DEFECTO
+# =============================================================================
+
+defaults = {
+    "precio_piso": 365_000, "gastos": 8_500, "aportacion": 100_000,
+    "cantidad_banco": 200_000, "tipo_interes": 3.5, "plazo_banco": 30,
+    "plazo_tio": 10, "ingresos": 2_999, "max_pct": 35,
+    "otra_cuota": 529, "otra_resto": 31_000, "num_partes": 3,
+    "cancelar_madre": False, "plazo_devol_madre": 10,
+    "bonif_nomina_activa": False, "bonif_nomina_pct": 0.30,
+    "bonif_hogar_activa": False, "bonif_hogar_pct": 0.10, "bonif_hogar_coste": 25.0,
+    "bonif_vida_activa": False, "bonif_vida_pct": 0.10, "bonif_vida_coste": 15.0,
+    "bonif_otro_activa": False, "bonif_otro_pct": 0.05, "bonif_otro_coste": 0.0,
+}
+
+# Si hay un escenario cargado, sobreescribir defaults
+if st.session_state.cargar_nombre is not None:
+    try:
+        records = cargar_desde_supabase()
+        for r in records:
+            if r.get("nombre") == st.session_state.cargar_nombre:
+                for key in defaults:
+                    if key in r:
+                        val = r[key]
+                        if key in ["cancelar_madre", "bonif_nomina_activa", "bonif_hogar_activa",
+                                   "bonif_vida_activa", "bonif_otro_activa", "cumple"]:
+                            defaults[key] = bool(val)
+                        else:
+                            defaults[key] = val
+                break
+    except Exception:
+        pass
+    st.session_state.cargar_nombre = None
+    st.toast("Escenario cargado", icon="✅")
+
+
+# =============================================================================
+#  SIDEBAR - INPUTS GLOBALES (siempre existen)
+# =============================================================================
+
+with st.sidebar:
+    st.header("⚙️ Parámetros")
+
+    st.subheader("El piso")
+    precio_piso = st.number_input("Precio del piso (€)", value=int(defaults["precio_piso"]), step=1_000, key="precio_piso")
+    gastos = st.number_input("Gastos (notaría, registro, ITP...) (€)", value=int(defaults["gastos"]), step=500, key="gastos")
+    aportacion = st.number_input("Tu aportación neta (€)", value=int(defaults["aportacion"]), step=1_000, key="aportacion")
+
+    st.subheader("El banco")
+    cantidad_banco = st.number_input("Cantidad que te da el banco (€)", value=int(defaults["cantidad_banco"]), step=1_000, key="cantidad_banco")
+    tipo_interes_base = st.slider("Tipo de interés anual SIN bonificar (%)", min_value=2.0, max_value=4.0, value=float(defaults["tipo_interes"]), step=0.01, key="tipo_interes") / 100
+    plazo_banco = st.slider("Plazo banco (años)", min_value=20, max_value=40, value=int(defaults["plazo_banco"]), step=1, key="plazo_banco")
+
+    st.subheader("El tío")
+    plazo_tio = st.slider("Plazo tío (años)", min_value=5, max_value=20, value=int(defaults["plazo_tio"]), step=1, key="plazo_tio")
+
+    st.subheader("Tus ingresos")
+    ingresos = st.number_input("Ingresos netos mensuales (€)", value=int(defaults["ingresos"]), step=50, key="ingresos")
+    max_pct = st.slider("Máxima cuota banco (% de ingresos)", min_value=30, max_value=50, value=int(defaults["max_pct"]), step=1, key="max_pct") / 100
+
+    st.subheader("Otra hipoteca (madre/hermana)")
+    st.markdown("*La paga tu madre, pero el banco te resta capacidad por ser titular.*")
+    otra_cuota = st.number_input("Cuota total mensual (€)", value=int(defaults["otra_cuota"]), step=10, key="otra_cuota")
+    otra_resto = st.number_input("Capital pendiente (€)", value=int(defaults["otra_resto"]), step=1_000, key="otra_resto")
+    num_partes = st.number_input("Número de titulares", value=int(defaults["num_partes"]), step=1, min_value=1, key="num_partes")
+
+    st.subheader("¿Cancelar la hipoteca de la madre?")
+    cancelar_madre = st.checkbox(f"Sí, cancelarla (le doy {fmt(otra_resto)} y me los devuelve)", value=defaults["cancelar_madre"], key="cancelar_madre")
+    if cancelar_madre:
+        plazo_devol_madre = st.slider("Plazo devolución madre (años)", min_value=3, max_value=15, value=int(defaults["plazo_devol_madre"]), step=1, key="plazo_devol_madre")
+    else:
+        plazo_devol_madre = int(defaults["plazo_devol_madre"])
+
+    st.subheader("🎁 Bonificaciones")
+    st.markdown("*Marca las que apliques para ver el interés bonificado.*")
+
+    bonif_nomina_activa = st.checkbox("📋 Nómina", value=defaults["bonif_nomina_activa"], key="bonif_nomina_activa")
+    if bonif_nomina_activa:
+        bonif_nomina_pct = st.number_input("Bonificación nómina (%)", value=float(defaults["bonif_nomina_pct"]), step=0.01, min_value=0.0, max_value=2.0, key="bonif_nomina_pct") / 100
+    else:
+        bonif_nomina_pct = float(defaults["bonif_nomina_pct"]) / 100
+
+    bonif_hogar_activa = st.checkbox("🏠 Seguro de hogar", value=defaults["bonif_hogar_activa"], key="bonif_hogar_activa")
+    if bonif_hogar_activa:
+        bonif_hogar_pct = st.number_input("Bonificación hogar (%)", value=float(defaults["bonif_hogar_pct"]), step=0.01, min_value=0.0, max_value=2.0, key="bonif_hogar_pct") / 100
+        bonif_hogar_coste = st.number_input("Coste seguro hogar (€/mes)", value=float(defaults["bonif_hogar_coste"]), step=1.0, min_value=0.0, key="bonif_hogar_coste")
+    else:
+        bonif_hogar_pct = float(defaults["bonif_hogar_pct"]) / 100
+        bonif_hogar_coste = float(defaults["bonif_hogar_coste"])
+
+    bonif_vida_activa = st.checkbox("❤️ Seguro de vida", value=defaults["bonif_vida_activa"], key="bonif_vida_activa")
+    if bonif_vida_activa:
+        bonif_vida_pct = st.number_input("Bonificación vida (%)", value=float(defaults["bonif_vida_pct"]), step=0.01, min_value=0.0, max_value=2.0, key="bonif_vida_pct") / 100
+        bonif_vida_coste = st.number_input("Coste seguro vida (€/mes)", value=float(defaults["bonif_vida_coste"]), step=1.0, min_value=0.0, key="bonif_vida_coste")
+    else:
+        bonif_vida_pct = float(defaults["bonif_vida_pct"]) / 100
+        bonif_vida_coste = float(defaults["bonif_vida_coste"])
+
+    bonif_otro_activa = st.checkbox("➕ Otro adicional", value=defaults["bonif_otro_activa"], key="bonif_otro_activa")
+    if bonif_otro_activa:
+        bonif_otro_pct = st.number_input("Bonificación otro (%)", value=float(defaults["bonif_otro_pct"]), step=0.01, min_value=0.0, max_value=2.0, key="bonif_otro_pct") / 100
+        bonif_otro_coste = st.number_input("Coste otro (€/mes)", value=float(defaults["bonif_otro_coste"]), step=1.0, min_value=0.0, key="bonif_otro_coste")
+    else:
+        bonif_otro_pct = float(defaults["bonif_otro_pct"]) / 100
+        bonif_otro_coste = float(defaults["bonif_otro_coste"])
+
+
+# =============================================================================
+#  CALCULAR ESCENARIO (siempre, para todas las páginas)
+# =============================================================================
+
+esc = calcular_escenario(
+    precio_piso, gastos, aportacion, cantidad_banco, tipo_interes_base,
+    plazo_banco, plazo_tio, ingresos, max_pct,
+    otra_cuota, otra_resto, num_partes,
+    cancelar_madre, plazo_devol_madre,
+    bonif_nomina_activa, bonif_nomina_pct,
+    bonif_hogar_activa, bonif_hogar_pct, bonif_hogar_coste,
+    bonif_vida_activa, bonif_vida_pct, bonif_vida_coste,
+    bonif_otro_activa, bonif_otro_pct, bonif_otro_coste
+)
+
+
+# =============================================================================
 #  NAVEGACION
 # =============================================================================
 
 st.sidebar.title("🧭 Navegación")
-pagina = st.sidebar.radio("Ir a", ["Calcular", "Análisis", "Mis escenarios"], 
+pagina = st.sidebar.radio("Ir a", ["Calcular", "Análisis", "Mis escenarios"],
     index=0 if st.session_state.pagina == "Calcular" else (1 if st.session_state.pagina == "Análisis" else 2))
 
 if pagina != st.session_state.pagina:
@@ -401,114 +525,6 @@ if st.session_state.pagina == "Calcular":
 
     st.title("🏠 Calculadora de Hipotecas")
     st.markdown("Modifica los parámetros en el panel de la izquierda y ve cómo evoluciona tu cuota en tiempo real.")
-
-    defaults = {
-        "precio_piso": 365_000, "gastos": 8_500, "aportacion": 100_000,
-        "cantidad_banco": 200_000, "tipo_interes": 3.5, "plazo_banco": 30,
-        "plazo_tio": 10, "ingresos": 2_999, "max_pct": 35,
-        "otra_cuota": 529, "otra_resto": 31_000, "num_partes": 3,
-        "cancelar_madre": False, "plazo_devol_madre": 10,
-        "bonif_nomina_activa": False, "bonif_nomina_pct": 0.30,
-        "bonif_hogar_activa": False, "bonif_hogar_pct": 0.10, "bonif_hogar_coste": 25.0,
-        "bonif_vida_activa": False, "bonif_vida_pct": 0.10, "bonif_vida_coste": 15.0,
-        "bonif_otro_activa": False, "bonif_otro_pct": 0.05, "bonif_otro_coste": 0.0,
-    }
-
-    if st.session_state.cargar_nombre is not None:
-        try:
-            records = cargar_desde_supabase()
-            for r in records:
-                if r.get("nombre") == st.session_state.cargar_nombre:
-                    for key in defaults:
-                        if key in r:
-                            val = r[key]
-                            if key in ["cancelar_madre", "bonif_nomina_activa", "bonif_hogar_activa",
-                                       "bonif_vida_activa", "bonif_otro_activa", "cumple"]:
-                                defaults[key] = bool(val)
-                            else:
-                                defaults[key] = val
-                    break
-        except Exception:
-            pass
-        st.session_state.cargar_nombre = None
-        st.toast("Escenario cargado", icon="✅")
-
-    with st.sidebar:
-        st.header("⚙️ Parámetros")
-
-        st.subheader("El piso")
-        precio_piso = st.number_input("Precio del piso (€)", value=int(defaults["precio_piso"]), step=1_000, key="precio_piso")
-        gastos = st.number_input("Gastos (notaría, registro, ITP...) (€)", value=int(defaults["gastos"]), step=500, key="gastos")
-        aportacion = st.number_input("Tu aportación neta (€)", value=int(defaults["aportacion"]), step=1_000, key="aportacion")
-
-        st.subheader("El banco")
-        cantidad_banco = st.number_input("Cantidad que te da el banco (€)", value=int(defaults["cantidad_banco"]), step=1_000, key="cantidad_banco")
-        tipo_interes_base = st.slider("Tipo de interés anual SIN bonificar (%)", min_value=2.0, max_value=4.0, value=float(defaults["tipo_interes"]), step=0.01, key="tipo_interes") / 100
-        plazo_banco = st.slider("Plazo banco (años)", min_value=20, max_value=40, value=int(defaults["plazo_banco"]), step=1, key="plazo_banco")
-
-        st.subheader("El tío")
-        plazo_tio = st.slider("Plazo tío (años)", min_value=5, max_value=20, value=int(defaults["plazo_tio"]), step=1, key="plazo_tio")
-
-        st.subheader("Tus ingresos")
-        ingresos = st.number_input("Ingresos netos mensuales (€)", value=int(defaults["ingresos"]), step=50, key="ingresos")
-        max_pct = st.slider("Máxima cuota banco (% de ingresos)", min_value=30, max_value=50, value=int(defaults["max_pct"]), step=1, key="max_pct") / 100
-
-        st.subheader("Otra hipoteca (madre/hermana)")
-        st.markdown("*La paga tu madre, pero el banco te resta capacidad por ser titular.*")
-        otra_cuota = st.number_input("Cuota total mensual (€)", value=int(defaults["otra_cuota"]), step=10, key="otra_cuota")
-        otra_resto = st.number_input("Capital pendiente (€)", value=int(defaults["otra_resto"]), step=1_000, key="otra_resto")
-        num_partes = st.number_input("Número de titulares", value=int(defaults["num_partes"]), step=1, min_value=1, key="num_partes")
-
-        st.subheader("¿Cancelar la hipoteca de la madre?")
-        cancelar_madre = st.checkbox(f"Sí, cancelarla (le doy {fmt(otra_resto)} y me los devuelve)", value=defaults["cancelar_madre"], key="cancelar_madre")
-        if cancelar_madre:
-            plazo_devol_madre = st.slider("Plazo devolución madre (años)", min_value=3, max_value=15, value=int(defaults["plazo_devol_madre"]), step=1, key="plazo_devol_madre")
-        else:
-            plazo_devol_madre = int(defaults["plazo_devol_madre"])
-
-        st.subheader("🎁 Bonificaciones")
-        st.markdown("*Marca las que apliques para ver el interés bonificado.*")
-
-        bonif_nomina_activa = st.checkbox("📋 Nómina", value=defaults["bonif_nomina_activa"], key="bonif_nomina_activa")
-        if bonif_nomina_activa:
-            bonif_nomina_pct = st.number_input("Bonificación nómina (%)", value=float(defaults["bonif_nomina_pct"]), step=0.01, min_value=0.0, max_value=2.0, key="bonif_nomina_pct") / 100
-        else:
-            bonif_nomina_pct = float(defaults["bonif_nomina_pct"]) / 100
-
-        bonif_hogar_activa = st.checkbox("🏠 Seguro de hogar", value=defaults["bonif_hogar_activa"], key="bonif_hogar_activa")
-        if bonif_hogar_activa:
-            bonif_hogar_pct = st.number_input("Bonificación hogar (%)", value=float(defaults["bonif_hogar_pct"]), step=0.01, min_value=0.0, max_value=2.0, key="bonif_hogar_pct") / 100
-            bonif_hogar_coste = st.number_input("Coste seguro hogar (€/mes)", value=float(defaults["bonif_hogar_coste"]), step=1.0, min_value=0.0, key="bonif_hogar_coste")
-        else:
-            bonif_hogar_pct = float(defaults["bonif_hogar_pct"]) / 100
-            bonif_hogar_coste = float(defaults["bonif_hogar_coste"])
-
-        bonif_vida_activa = st.checkbox("❤️ Seguro de vida", value=defaults["bonif_vida_activa"], key="bonif_vida_activa")
-        if bonif_vida_activa:
-            bonif_vida_pct = st.number_input("Bonificación vida (%)", value=float(defaults["bonif_vida_pct"]), step=0.01, min_value=0.0, max_value=2.0, key="bonif_vida_pct") / 100
-            bonif_vida_coste = st.number_input("Coste seguro vida (€/mes)", value=float(defaults["bonif_vida_coste"]), step=1.0, min_value=0.0, key="bonif_vida_coste")
-        else:
-            bonif_vida_pct = float(defaults["bonif_vida_pct"]) / 100
-            bonif_vida_coste = float(defaults["bonif_vida_coste"])
-
-        bonif_otro_activa = st.checkbox("➕ Otro adicional", value=defaults["bonif_otro_activa"], key="bonif_otro_activa")
-        if bonif_otro_activa:
-            bonif_otro_pct = st.number_input("Bonificación otro (%)", value=float(defaults["bonif_otro_pct"]), step=0.01, min_value=0.0, max_value=2.0, key="bonif_otro_pct") / 100
-            bonif_otro_coste = st.number_input("Coste otro (€/mes)", value=float(defaults["bonif_otro_coste"]), step=1.0, min_value=0.0, key="bonif_otro_coste")
-        else:
-            bonif_otro_pct = float(defaults["bonif_otro_pct"]) / 100
-            bonif_otro_coste = float(defaults["bonif_otro_coste"])
-
-    esc = calcular_escenario(
-        precio_piso, gastos, aportacion, cantidad_banco, tipo_interes_base,
-        plazo_banco, plazo_tio, ingresos, max_pct,
-        otra_cuota, otra_resto, num_partes,
-        cancelar_madre, plazo_devol_madre,
-        bonif_nomina_activa, bonif_nomina_pct,
-        bonif_hogar_activa, bonif_hogar_pct, bonif_hogar_coste,
-        bonif_vida_activa, bonif_vida_pct, bonif_vida_coste,
-        bonif_otro_activa, bonif_otro_pct, bonif_otro_coste
-    )
 
     # =============================================================================
     #  RESULTADOS
@@ -680,9 +696,9 @@ if st.session_state.pagina == "Calcular":
 
 elif st.session_state.pagina == "Análisis":
     st.title("📊 Análisis de sensibilidad")
-    st.markdown("Elige un parámetro y observa cómo varía tu cuota mensual inicial.")
+    st.markdown("Elige un parámetro y observa cómo varía tu cuota mensual inicial. **Todos los demás parámetros mantienen los valores actuales del sidebar.**")
 
-    # Usar los valores actuales de la pestaña "Calcular" (del session_state)
+    # Los valores actuales ya están en session_state gracias a los widgets globales del sidebar
     def get_val(key, default):
         return st.session_state.get(key, default)
 
@@ -718,22 +734,20 @@ elif st.session_state.pagina == "Análisis":
 
     with col_param:
         parametro = st.selectbox("Parámetro a analizar", [
-            "cantidad_banco",
+            "aportacion",
             "tipo_interes",
             "plazo_banco",
             "plazo_tio",
-            "max_pct"
         ], format_func=lambda x: {
-            "cantidad_banco": "Cantidad del banco (€)",
+            "aportacion": "Mi aportación neta (€)",
             "tipo_interes": "Tipo de interés (%)",
             "plazo_banco": "Plazo banco (años)",
             "plazo_tio": "Plazo tío (años)",
-            "max_pct": "Máx. cuota banco (% ingresos)"
         }[x])
 
     with col_range:
-        if parametro == "cantidad_banco":
-            rango = st.slider("Rango de cantidad (€)", 100_000, 300_000, (150_000, 250_000), step=5_000)
+        if parametro == "aportacion":
+            rango = st.slider("Rango de aportación (€)", 20_000, 200_000, (60_000, 120_000), step=5_000)
             valores = np.arange(rango[0], rango[1] + 1, 5_000)
         elif parametro == "tipo_interes":
             rango = st.slider("Rango de interés (%)", 2.0, 4.0, (2.5, 3.5), step=0.05)
@@ -744,25 +758,20 @@ elif st.session_state.pagina == "Análisis":
         elif parametro == "plazo_tio":
             rango = st.slider("Rango plazo tío (años)", 5, 20, (8, 15), step=1)
             valores = np.arange(rango[0], rango[1] + 1, 1)
-        elif parametro == "max_pct":
-            rango = st.slider("Rango máx. cuota (%)", 30, 50, (33, 40), step=1)
-            valores = np.arange(rango[0], rango[1] + 1, 1)
 
     # Calcular cuota para cada valor
     cuotas = []
     limites = []
     for v in valores:
         p = base_params.copy()
-        if parametro == "cantidad_banco":
-            p["cantidad_banco"] = int(v)
+        if parametro == "aportacion":
+            p["aportacion"] = int(v)
         elif parametro == "tipo_interes":
             p["tipo_interes"] = v
         elif parametro == "plazo_banco":
             p["plazo_banco"] = int(v)
         elif parametro == "plazo_tio":
             p["plazo_tio"] = int(v)
-        elif parametro == "max_pct":
-            p["max_pct"] = int(v)
 
         esc_temp = calcular_escenario(
             p["precio_piso"], p["gastos"], p["aportacion"], p["cantidad_banco"],
@@ -785,11 +794,7 @@ elif st.session_state.pagina == "Análisis":
 
     # Marcar el valor actual (base)
     valor_base = base_params[parametro]
-    if parametro == "tipo_interes":
-        valor_base = valor_base
-    elif parametro in ["max_pct"]:
-        valor_base = valor_base
-    elif parametro in ["cantidad_banco", "plazo_banco", "plazo_tio"]:
+    if parametro in ["aportacion", "plazo_banco", "plazo_tio"]:
         valor_base = int(valor_base)
 
     idx_base = np.argmin(np.abs(valores - valor_base))
@@ -797,11 +802,10 @@ elif st.session_state.pagina == "Análisis":
     ax.scatter([valores[idx_base]], [cuotas[idx_base]], color="#2ecc71", s=100, zorder=5)
 
     ax.set_xlabel({
-        "cantidad_banco": "Cantidad del banco (€)",
+        "aportacion": "Mi aportación neta (€)",
         "tipo_interes": "Tipo de interés (%)",
         "plazo_banco": "Plazo banco (años)",
         "plazo_tio": "Plazo tío (años)",
-        "max_pct": "Máx. cuota banco (% ingresos)"
     }[parametro], fontsize=12)
     ax.set_ylabel("Cuota mensual total (€)", fontsize=12)
     ax.set_title(f"Evolución de la cuota según {parametro}", fontsize=14, fontweight="bold")
@@ -815,7 +819,7 @@ elif st.session_state.pagina == "Análisis":
     tabla_data = []
     for i, v in enumerate(valores):
         tabla_data.append({
-            "Valor": f"{v:,.0f}" if parametro == "cantidad_banco" else (f"{v:.2f}%" if parametro == "tipo_interes" else f"{int(v)}"),
+            "Valor": f"{v:,.0f} €" if parametro == "aportacion" else (f"{v:.2f}%" if parametro == "tipo_interes" else f"{int(v)}"),
             "Cuota total/mes": fmt(cuotas[i]),
             "Diferencia vs actual": fmt(cuotas[i] - cuotas[idx_base])
         })
