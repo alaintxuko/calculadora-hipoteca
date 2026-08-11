@@ -821,6 +821,7 @@ elif st.session_state.pagina == "Análisis":
 
     ax.set_xlabel({
         "aportacion": "Mi aportación neta (€)",
+        "cantidad_banco": "Cantidad del banco (€)",
         "tipo_interes": "Tipo de interés (%)",
         "plazo_banco": "Plazo banco (años)",
         "plazo_tio": "Plazo tío (años)",
