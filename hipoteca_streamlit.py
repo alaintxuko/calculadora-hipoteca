@@ -385,7 +385,8 @@ if "cargar_nombre" not in st.session_state:
 # =============================================================================
 
 st.sidebar.title("🧭 Navegación")
-pagina = st.sidebar.radio("Ir a", ["Calcular", "Mis escenarios"], index=0 if st.session_state.pagina == "Calcular" else 1)
+pagina = st.sidebar.radio("Ir a", ["Calcular", "Análisis", "Mis escenarios"], 
+    index=0 if st.session_state.pagina == "Calcular" else (1 if st.session_state.pagina == "Análisis" else 2))
 
 if pagina != st.session_state.pagina:
     st.session_state.pagina = pagina
@@ -674,6 +675,135 @@ if st.session_state.pagina == "Calcular":
 
 
 # =============================================================================
+#  PAGINA: ANALISIS
+# =============================================================================
+
+elif st.session_state.pagina == "Análisis":
+    st.title("📊 Análisis de sensibilidad")
+    st.markdown("Elige un parámetro y observa cómo varía tu cuota mensual inicial.")
+
+    # Usar los valores actuales como base (del session_state o defaults)
+    base_params = {
+        "precio_piso": 365_000, "gastos": 8_500, "aportacion": 100_000,
+        "cantidad_banco": 200_000, "tipo_interes": 3.5, "plazo_banco": 30,
+        "plazo_tio": 10, "ingresos": 2_999, "max_pct": 35,
+        "otra_cuota": 529, "otra_resto": 31_000, "num_partes": 3,
+        "cancelar_madre": False, "plazo_devol_madre": 10,
+        "bonif_nomina_activa": False, "bonif_nomina_pct": 0.30,
+        "bonif_hogar_activa": False, "bonif_hogar_pct": 0.10, "bonif_hogar_coste": 25.0,
+        "bonif_vida_activa": False, "bonif_vida_pct": 0.10, "bonif_vida_coste": 15.0,
+        "bonif_otro_activa": False, "bonif_otro_pct": 0.05, "bonif_otro_coste": 0.0,
+    }
+
+    col_param, col_range = st.columns([1, 2])
+
+    with col_param:
+        parametro = st.selectbox("Parámetro a analizar", [
+            "cantidad_banco",
+            "tipo_interes",
+            "plazo_banco",
+            "plazo_tio",
+            "max_pct"
+        ], format_func=lambda x: {
+            "cantidad_banco": "Cantidad del banco (€)",
+            "tipo_interes": "Tipo de interés (%)",
+            "plazo_banco": "Plazo banco (años)",
+            "plazo_tio": "Plazo tío (años)",
+            "max_pct": "Máx. cuota banco (% ingresos)"
+        }[x])
+
+    with col_range:
+        if parametro == "cantidad_banco":
+            rango = st.slider("Rango de cantidad (€)", 100_000, 300_000, (150_000, 250_000), step=5_000)
+            valores = np.arange(rango[0], rango[1] + 1, 5_000)
+        elif parametro == "tipo_interes":
+            rango = st.slider("Rango de interés (%)", 2.0, 4.0, (2.5, 3.5), step=0.05)
+            valores = np.arange(rango[0], rango[1] + 0.001, 0.05)
+        elif parametro == "plazo_banco":
+            rango = st.slider("Rango plazo banco (años)", 20, 40, (25, 35), step=1)
+            valores = np.arange(rango[0], rango[1] + 1, 1)
+        elif parametro == "plazo_tio":
+            rango = st.slider("Rango plazo tío (años)", 5, 20, (8, 15), step=1)
+            valores = np.arange(rango[0], rango[1] + 1, 1)
+        elif parametro == "max_pct":
+            rango = st.slider("Rango máx. cuota (%)", 30, 50, (33, 40), step=1)
+            valores = np.arange(rango[0], rango[1] + 1, 1)
+
+    # Calcular cuota para cada valor
+    cuotas = []
+    limites = []
+    for v in valores:
+        p = base_params.copy()
+        if parametro == "cantidad_banco":
+            p["cantidad_banco"] = int(v)
+        elif parametro == "tipo_interes":
+            p["tipo_interes"] = v
+        elif parametro == "plazo_banco":
+            p["plazo_banco"] = int(v)
+        elif parametro == "plazo_tio":
+            p["plazo_tio"] = int(v)
+        elif parametro == "max_pct":
+            p["max_pct"] = int(v)
+
+        esc_temp = calcular_escenario(
+            p["precio_piso"], p["gastos"], p["aportacion"], p["cantidad_banco"],
+            p["tipo_interes"] / 100, p["plazo_banco"], p["plazo_tio"],
+            p["ingresos"], p["max_pct"] / 100,
+            p["otra_cuota"], p["otra_resto"], p["num_partes"],
+            p["cancelar_madre"], p["plazo_devol_madre"],
+            p["bonif_nomina_activa"], p["bonif_nomina_pct"] / 100,
+            p["bonif_hogar_activa"], p["bonif_hogar_pct"] / 100, p["bonif_hogar_coste"],
+            p["bonif_vida_activa"], p["bonif_vida_pct"] / 100, p["bonif_vida_coste"],
+            p["bonif_otro_activa"], p["bonif_otro_pct"] / 100, p["bonif_otro_coste"]
+        )
+        cuotas.append(esc_temp["gasto_mensual"])
+        limites.append(esc_temp["max_efectivo"])
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.plot(valores, cuotas, color="#e74c3c", linewidth=2.5, marker="o", markersize=4, label="Cuota mensual total")
+    ax.axhline(y=limites[0], color="purple", linestyle="--", linewidth=2, label=f"Límite banco ({fmt(limites[0])})")
+
+    # Marcar el valor actual (base)
+    valor_base = base_params[parametro]
+    if parametro == "tipo_interes":
+        valor_base = valor_base / 100
+    elif parametro in ["max_pct"]:
+        valor_base = valor_base
+    elif parametro in ["cantidad_banco", "plazo_banco", "plazo_tio"]:
+        valor_base = int(valor_base)
+
+    idx_base = np.argmin(np.abs(valores - valor_base))
+    ax.axvline(x=valores[idx_base], color="#2ecc71", linestyle=":", linewidth=2, alpha=0.7, label="Valor actual")
+    ax.scatter([valores[idx_base]], [cuotas[idx_base]], color="#2ecc71", s=100, zorder=5)
+
+    ax.set_xlabel({
+        "cantidad_banco": "Cantidad del banco (€)",
+        "tipo_interes": "Tipo de interés (%)",
+        "plazo_banco": "Plazo banco (años)",
+        "plazo_tio": "Plazo tío (años)",
+        "max_pct": "Máx. cuota banco (% ingresos)"
+    }[parametro], fontsize=12)
+    ax.set_ylabel("Cuota mensual total (€)", fontsize=12)
+    ax.set_title(f"Evolución de la cuota según {parametro}", fontsize=14, fontweight="bold")
+    ax.legend(loc="upper right")
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    st.pyplot(fig)
+
+    # Tabla de valores
+    st.subheader("📋 Valores detallados")
+    tabla_data = []
+    for i, v in enumerate(valores):
+        tabla_data.append({
+            "Valor": f"{v:,.0f}" if parametro == "cantidad_banco" else (f"{v:.2f}%" if parametro == "tipo_interes" else f"{int(v)}"),
+            "Cuota total/mes": fmt(cuotas[i]),
+            "Diferencia vs actual": fmt(cuotas[i] - cuotas[idx_base])
+        })
+    st.table(tabla_data)
+
+
+# =============================================================================
 #  PAGINA: MIS ESCENARIOS
 # =============================================================================
 
@@ -692,7 +822,6 @@ else:
         for r in records:
             nombre = r.get("nombre", "Sin nombre")
 
-            # Usar datos guardados directamente si existen, si no recalcular
             cuota_banco = float(r.get("cuota_banco", 0))
             cuota_tio = float(r.get("cuota_tio", 0))
             intereses = float(r.get("intereses_totales", 0))
@@ -700,34 +829,39 @@ else:
             tipo_interes = float(r.get("tipo_interes", 0))
             plazo_banco = int(r.get("plazo_banco", 0))
 
-            # Si no hay intereses guardados (datos antiguos), recalcular
+            # Recalcular intereses si no están guardados (datos antiguos)
             if intereses == 0 and cuota_banco > 0 and cantidad_banco > 0 and plazo_banco > 0:
                 total_pagado = cuota_banco * plazo_banco * 12
                 intereses = total_pagado - cantidad_banco
 
+            # Porcentaje de intereses sobre lo pedido
+            pct_intereses = (intereses / cantidad_banco * 100) if cantidad_banco > 0 else 0
+
+            # Pedido sin decimales
+            pedido_fmt = f"{int(cantidad_banco):,} €".replace(",", ".")
+
             with st.container(border=True):
-                # Fila 1: Nombre y datos clave
-                c1, c2, c3, c4, c5, c6, c7 = st.columns([2.5, 1.0, 1.0, 1.0, 1.0, 0.7, 0.7])
+                c1, c2, c3, c4, c5, c6, c7 = st.columns([2.5, 1.0, 1.0, 1.0, 1.2, 0.7, 0.7])
 
                 with c1:
                     st.markdown(f"<span style='font-size:0.9rem; font-weight:600'>{nombre}</span>", unsafe_allow_html=True)
-                    st.markdown(f"<span style='font-size:0.75rem; color:#666'>Pedido: {fmt(cantidad_banco)} | Tipo: {tipo_interes:.2f}% | {plazo_banco}años</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-size:0.75rem; color:#fff'>Pedido: {pedido_fmt} | Tipo: {tipo_interes:.2f}% | {plazo_banco} años</span>", unsafe_allow_html=True)
 
                 with c2:
-                    st.markdown(f"<span style='font-size:0.75rem; color:#666'>Total/mes</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-size:0.75rem; color:#fff'>Total/mes</span>", unsafe_allow_html=True)
                     st.markdown(f"<span style='font-size:0.9rem; font-weight:600'>{fmt(cuota_banco + cuota_tio)}</span>", unsafe_allow_html=True)
 
                 with c3:
-                    st.markdown(f"<span style='font-size:0.75rem; color:#666'>Banco</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-size:0.75rem; color:#fff'>Banco</span>", unsafe_allow_html=True)
                     st.markdown(f"<span style='font-size:0.9rem'>{fmt(cuota_banco)}</span>", unsafe_allow_html=True)
 
                 with c4:
-                    st.markdown(f"<span style='font-size:0.75rem; color:#666'>Tío</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-size:0.75rem; color:#fff'>Tío</span>", unsafe_allow_html=True)
                     st.markdown(f"<span style='font-size:0.9rem'>{fmt(cuota_tio)}</span>", unsafe_allow_html=True)
 
                 with c5:
-                    st.markdown(f"<span style='font-size:0.75rem; color:#666'>Intereses</span>", unsafe_allow_html=True)
-                    st.markdown(f"<span style='font-size:0.9rem; color:#e74c3c'>{fmt(intereses)}</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-size:0.75rem; color:#fff'>Intereses</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-size:0.85rem; color:#e74c3c'>{fmt(intereses)} ({pct_intereses:.1f}%)</span>", unsafe_allow_html=True)
 
                 with c6:
                     if st.button("📂", key=f"cargar_{nombre}", help="Cargar escenario"):
