@@ -425,6 +425,20 @@ if st.session_state.cargar_nombre is not None:
     st.toast("Escenario cargado", icon="✅")
 
 
+
+# =============================================================================
+#  NAVEGACION (arriba del sidebar)
+# =============================================================================
+
+st.sidebar.title("🧭 Navegación")
+pagina = st.sidebar.radio("Ir a", ["Calcular", "Análisis", "Mis escenarios"],
+    index=0 if st.session_state.pagina == "Calcular" else (1 if st.session_state.pagina == "Análisis" else 2))
+
+if pagina != st.session_state.pagina:
+    st.session_state.pagina = pagina
+    st.rerun()
+
+
 # =============================================================================
 #  SIDEBAR - INPUTS GLOBALES (siempre existen)
 # =============================================================================
@@ -512,17 +526,6 @@ esc = calcular_escenario(
 )
 
 
-# =============================================================================
-#  NAVEGACION
-# =============================================================================
-
-st.sidebar.title("🧭 Navegación")
-pagina = st.sidebar.radio("Ir a", ["Calcular", "Análisis", "Mis escenarios"],
-    index=0 if st.session_state.pagina == "Calcular" else (1 if st.session_state.pagina == "Análisis" else 2))
-
-if pagina != st.session_state.pagina:
-    st.session_state.pagina = pagina
-    st.rerun()
 
 
 # =============================================================================
@@ -743,11 +746,13 @@ elif st.session_state.pagina == "Análisis":
     with col_param:
         parametro = st.selectbox("Parámetro a analizar", [
             "aportacion",
+            "cantidad_banco",
             "tipo_interes",
             "plazo_banco",
             "plazo_tio",
         ], format_func=lambda x: {
             "aportacion": "Mi aportación neta (€)",
+            "cantidad_banco": "Cantidad del banco (€)",
             "tipo_interes": "Tipo de interés (%)",
             "plazo_banco": "Plazo banco (años)",
             "plazo_tio": "Plazo tío (años)",
@@ -756,6 +761,9 @@ elif st.session_state.pagina == "Análisis":
     with col_range:
         if parametro == "aportacion":
             rango = st.slider("Rango de aportación (€)", 20_000, 200_000, (60_000, 120_000), step=5_000)
+            valores = np.arange(rango[0], rango[1] + 1, 5_000)
+        elif parametro == "cantidad_banco":
+            rango = st.slider("Rango cantidad banco (€)", 100_000, 300_000, (150_000, 250_000), step=5_000)
             valores = np.arange(rango[0], rango[1] + 1, 5_000)
         elif parametro == "tipo_interes":
             rango = st.slider("Rango de interés (%)", 2.0, 4.0, (2.5, 3.5), step=0.05)
@@ -774,6 +782,8 @@ elif st.session_state.pagina == "Análisis":
         p = base_params.copy()
         if parametro == "aportacion":
             p["aportacion"] = int(v)
+        elif parametro == "cantidad_banco":
+            p["cantidad_banco"] = int(v)
         elif parametro == "tipo_interes":
             p["tipo_interes"] = v
         elif parametro == "plazo_banco":
@@ -802,7 +812,7 @@ elif st.session_state.pagina == "Análisis":
 
     # Marcar el valor actual (base)
     valor_base = base_params[parametro]
-    if parametro in ["aportacion", "plazo_banco", "plazo_tio"]:
+    if parametro in ["aportacion", "cantidad_banco", "plazo_banco", "plazo_tio"]:
         valor_base = int(valor_base)
 
     idx_base = np.argmin(np.abs(valores - valor_base))
@@ -827,7 +837,7 @@ elif st.session_state.pagina == "Análisis":
     tabla_data = []
     for i, v in enumerate(valores):
         tabla_data.append({
-            "Valor": f"{v:,.0f} €" if parametro == "aportacion" else (f"{v:.2f}%" if parametro == "tipo_interes" else f"{int(v)}"),
+            "Valor": f"{v:,.0f} €" if parametro in ["aportacion", "cantidad_banco"] else (f"{v:.2f}%" if parametro == "tipo_interes" else f"{int(v)}"),
             "Cuota total/mes": fmt(cuotas[i]),
             "Diferencia vs actual": fmt(cuotas[i] - cuotas[idx_base])
         })
