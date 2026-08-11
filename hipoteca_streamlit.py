@@ -396,7 +396,10 @@ defaults = {
     "bonif_otro_activa": False, "bonif_otro_pct": 0.05, "bonif_otro_coste": 0.0,
 }
 
-# Si hay un escenario cargado, sobreescribir defaults
+# =============================================================================
+#  CARGAR ESCENARIO DESDE SUPABASE -> ESCRIBIR EN SESSION_STATE
+# =============================================================================
+
 if st.session_state.cargar_nombre is not None:
     try:
         records = cargar_desde_supabase()
@@ -406,10 +409,15 @@ if st.session_state.cargar_nombre is not None:
                     if key in r:
                         val = r[key]
                         if key in ["cancelar_madre", "bonif_nomina_activa", "bonif_hogar_activa",
-                                   "bonif_vida_activa", "bonif_otro_activa", "cumple"]:
-                            defaults[key] = bool(val)
+                                   "bonif_vida_activa", "bonif_otro_activa"]:
+                            st.session_state[key] = bool(val)
+                        elif key in ["precio_piso", "gastos", "aportacion", "cantidad_banco",
+                                     "plazo_banco", "plazo_tio", "ingresos", "max_pct",
+                                     "otra_cuota", "otra_resto", "num_partes", "plazo_devol_madre"]:
+                            st.session_state[key] = int(val)
                         else:
-                            defaults[key] = val
+                            # tipo_interes, bonif_*_pct, bonif_*_coste
+                            st.session_state[key] = float(val)
                 break
     except Exception:
         pass
