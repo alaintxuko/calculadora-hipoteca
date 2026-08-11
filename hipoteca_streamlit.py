@@ -682,17 +682,36 @@ elif st.session_state.pagina == "Análisis":
     st.title("📊 Análisis de sensibilidad")
     st.markdown("Elige un parámetro y observa cómo varía tu cuota mensual inicial.")
 
-    # Usar los valores actuales como base (del session_state o defaults)
+    # Usar los valores actuales de la pestaña "Calcular" (del session_state)
+    def get_val(key, default):
+        return st.session_state.get(key, default)
+
     base_params = {
-        "precio_piso": 365_000, "gastos": 8_500, "aportacion": 100_000,
-        "cantidad_banco": 200_000, "tipo_interes": 3.5, "plazo_banco": 30,
-        "plazo_tio": 10, "ingresos": 2_999, "max_pct": 35,
-        "otra_cuota": 529, "otra_resto": 31_000, "num_partes": 3,
-        "cancelar_madre": False, "plazo_devol_madre": 10,
-        "bonif_nomina_activa": False, "bonif_nomina_pct": 0.30,
-        "bonif_hogar_activa": False, "bonif_hogar_pct": 0.10, "bonif_hogar_coste": 25.0,
-        "bonif_vida_activa": False, "bonif_vida_pct": 0.10, "bonif_vida_coste": 15.0,
-        "bonif_otro_activa": False, "bonif_otro_pct": 0.05, "bonif_otro_coste": 0.0,
+        "precio_piso": get_val("precio_piso", 365_000),
+        "gastos": get_val("gastos", 8_500),
+        "aportacion": get_val("aportacion", 100_000),
+        "cantidad_banco": get_val("cantidad_banco", 200_000),
+        "tipo_interes": get_val("tipo_interes", 3.5),
+        "plazo_banco": get_val("plazo_banco", 30),
+        "plazo_tio": get_val("plazo_tio", 10),
+        "ingresos": get_val("ingresos", 2_999),
+        "max_pct": get_val("max_pct", 35),
+        "otra_cuota": get_val("otra_cuota", 529),
+        "otra_resto": get_val("otra_resto", 31_000),
+        "num_partes": get_val("num_partes", 3),
+        "cancelar_madre": get_val("cancelar_madre", False),
+        "plazo_devol_madre": get_val("plazo_devol_madre", 10),
+        "bonif_nomina_activa": get_val("bonif_nomina_activa", False),
+        "bonif_nomina_pct": get_val("bonif_nomina_pct", 0.30),
+        "bonif_hogar_activa": get_val("bonif_hogar_activa", False),
+        "bonif_hogar_pct": get_val("bonif_hogar_pct", 0.10),
+        "bonif_hogar_coste": get_val("bonif_hogar_coste", 25.0),
+        "bonif_vida_activa": get_val("bonif_vida_activa", False),
+        "bonif_vida_pct": get_val("bonif_vida_pct", 0.10),
+        "bonif_vida_coste": get_val("bonif_vida_coste", 15.0),
+        "bonif_otro_activa": get_val("bonif_otro_activa", False),
+        "bonif_otro_pct": get_val("bonif_otro_pct", 0.05),
+        "bonif_otro_coste": get_val("bonif_otro_coste", 0.0),
     }
 
     col_param, col_range = st.columns([1, 2])
@@ -767,7 +786,7 @@ elif st.session_state.pagina == "Análisis":
     # Marcar el valor actual (base)
     valor_base = base_params[parametro]
     if parametro == "tipo_interes":
-        valor_base = valor_base / 100
+        valor_base = valor_base
     elif parametro in ["max_pct"]:
         valor_base = valor_base
     elif parametro in ["cantidad_banco", "plazo_banco", "plazo_tio"]:
