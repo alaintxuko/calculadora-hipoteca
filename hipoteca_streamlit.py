@@ -32,27 +32,20 @@ st.set_page_config(page_title="Calculadora Hipotecaria", layout="wide")
 #  SUPABASE - Configuracion
 # =============================================================================
 
-SUPABASE_URL = "https://TU-PROJECT.supabase.co"   # <-- CAMBIA ESTO si no usas secrets
-SUPABASE_KEY = "TU-ANON-KEY"                        # <-- CAMBIA ESTO si no usas secrets
+SUPABASE_URL = "https://TU-PROJECT.supabase.co"
+SUPABASE_KEY = "TU-ANON-KEY"
 
 
 def get_supabase_client():
-    """Conecta con Supabase usando credenciales de Streamlit Secrets o variables."""
     try:
         from supabase import create_client
-
-        # Intentar leer de Streamlit Secrets primero
         try:
             url = st.secrets["supabase"]["url"]
             key = st.secrets["supabase"]["key"]
         except Exception:
-            # Fallback a variables hardcodeadas
             url = SUPABASE_URL
             key = SUPABASE_KEY
-
-        # Limpiar URL: quitar /rest/v1 y / al final
         url = url.replace("/rest/v1", "").rstrip("/")
-
         client = create_client(url, key)
         return client
     except Exception as e:
@@ -61,7 +54,6 @@ def get_supabase_client():
 
 
 def diagnosticar_supabase():
-    """Muestra información de diagnóstico sobre la conexión a Supabase."""
     try:
         from supabase import create_client
         try:
@@ -72,20 +64,15 @@ def diagnosticar_supabase():
             url = SUPABASE_URL.replace("/rest/v1", "").rstrip("/")
             key = SUPABASE_KEY
             source = "Variables del script"
-
         st.write(f"**URL:** `{url}`")
         st.write(f"**Key (primeros 20 chars):** `{key[:20]}...`")
         st.write(f"**Fuente:** {source}")
-
         client = create_client(url, key)
-
-        # Intentar listar tablas
         try:
             response = client.rpc("get_schema", {}).execute()
             st.write(f"**Respuesta RPC:** {response}")
         except Exception as e:
             st.write(f"**RPC falló (normal):** {e}")
-
         return client
     except Exception as e:
         st.error(f"Diagnóstico falló: {e}")
@@ -93,7 +80,6 @@ def diagnosticar_supabase():
 
 
 def existe_escenario(nombre):
-    """Comprueba si ya existe un escenario con ese nombre."""
     client = get_supabase_client()
     if client is None:
         return False
@@ -105,7 +91,6 @@ def existe_escenario(nombre):
 
 
 def eliminar_por_nombre(nombre):
-    """Elimina un escenario por nombre (usado para sobreescribir)."""
     client = get_supabase_client()
     if client is None:
         return False
@@ -117,7 +102,6 @@ def eliminar_por_nombre(nombre):
 
 
 def guardar_en_supabase(datos):
-    """Guarda un escenario en Supabase."""
     client = get_supabase_client()
     if client is None:
         return False, "No se pudo conectar a Supabase. Revisa la URL y la API key."
@@ -135,7 +119,6 @@ def guardar_en_supabase(datos):
 
 
 def cargar_desde_supabase():
-    """Carga todos los escenarios guardados en Supabase."""
     client = get_supabase_client()
     if client is None:
         return []
@@ -154,7 +137,6 @@ def cargar_desde_supabase():
 
 
 def eliminar_de_supabase(nombre):
-    """Elimina un escenario por nombre."""
     client = get_supabase_client()
     if client is None:
         return False
@@ -291,7 +273,6 @@ def calcular_escenario(precio_piso, gastos, aportacion, cantidad_banco, tipo_int
             "cancelar": cancelar_madre
         })
 
-    # Totales pagados
     total_pagado_banco = cuota_banco * meses_banco
     intereses_totales_banco = total_pagado_banco - cantidad_banco
     total_pagado_tio = cuota_tio * meses_tio
@@ -381,10 +362,9 @@ if "cargar_nombre" not in st.session_state:
 
 
 # =============================================================================
-#  VALORES POR DEFECTO
+#  VALORES POR DEFECTO (costes anuales en input, se dividen por 12 internamente)
 # =============================================================================
 
-# Los costes de bonificación se introducen ANUALES y se dividen por 12 internamente
 defaults = {
     "precio_piso": 365_000, "gastos": 8_500, "aportacion": 100_000,
     "cantidad_banco": 200_000, "tipo_interes": 3.5, "plazo_banco": 30,
@@ -392,13 +372,14 @@ defaults = {
     "otra_cuota": 529, "otra_resto": 31_000, "num_partes": 3,
     "cancelar_madre": False, "plazo_devol_madre": 10,
     "bonif_nomina_activa": False, "bonif_nomina_pct": 0.30,
-    "bonif_hogar_activa": False, "bonif_hogar_pct": 0.10, "bonif_hogar_coste": 300.0,   # 25*12
-    "bonif_vida_activa": False, "bonif_vida_pct": 0.10, "bonif_vida_coste": 180.0,     # 15*12
+    "bonif_hogar_activa": False, "bonif_hogar_pct": 0.10, "bonif_hogar_coste": 300.0,
+    "bonif_vida_activa": False, "bonif_vida_pct": 0.10, "bonif_vida_coste": 180.0,
     "bonif_otro_activa": False, "bonif_otro_pct": 0.05, "bonif_otro_coste": 0.0,
 }
 
+
 # =============================================================================
-#  CARGAR ESCENARIO DESDE SUPABASE -> ESCRIBIR EN SESSION_STATE
+#  CARGAR ESCENARIO -> ESCRIBIR EN SESSION_STATE
 # =============================================================================
 
 if st.session_state.cargar_nombre is not None:
@@ -417,10 +398,8 @@ if st.session_state.cargar_nombre is not None:
                                      "otra_cuota", "otra_resto", "num_partes", "plazo_devol_madre"]:
                             st.session_state[key] = int(val)
                         elif key in ["bonif_hogar_coste", "bonif_vida_coste", "bonif_otro_coste"]:
-                            # En BD están mensuales, el input es anual
                             st.session_state[key] = float(val) * 12
                         else:
-                            # tipo_interes, bonif_*_pct
                             st.session_state[key] = float(val)
                 break
     except Exception:
@@ -480,7 +459,7 @@ with st.sidebar:
         plazo_devol_madre = int(defaults["plazo_devol_madre"])
 
     st.subheader("🎁 Bonificaciones")
-    st.markdown("*Marca las que apliques para ver el interés bonificado. Los costes se introducen en €/año.*")
+    st.markdown("*Marca las que apliques. Los costes se introducen en €/año.*")
 
     bonif_nomina_activa = st.checkbox("📋 Nómina", value=defaults["bonif_nomina_activa"], key="bonif_nomina_activa")
     if bonif_nomina_activa:
@@ -541,15 +520,13 @@ if st.session_state.pagina == "Calcular":
     st.title("🏠 Calculadora de Hipotecas")
     st.markdown("Modifica los parámetros en el panel de la izquierda y ve cómo evoluciona tu cuota en tiempo real.")
 
-    # =============================================================================
-    #  RESULTADOS
-    # =============================================================================
-
+    # --- Interés aplicado ---
     if esc["descuento_total"] > 0:
         st.info(f"📉 Interés base: **{tipo_interes_base*100:.2f}%** → Bonificado: **{esc['tipo_interes_bonif']*100:.2f}%** (descuento total: {esc['descuento_total']*100:.2f}%)")
     else:
         st.info(f"📉 Interés aplicado: **{esc['tipo_interes_bonif']*100:.2f}%** (sin bonificaciones)")
 
+    # --- Cuota mensual ---
     st.header("💶 Tu cuota mensual")
 
     if esc["cancelar_madre"]:
@@ -568,11 +545,10 @@ if st.session_state.pagina == "Calcular":
 
     st.divider()
 
-    # --- ANÁLISIS DE BONIFICACIONES ---
-    if esc["descuento_total"] > 0:
-        st.header("🏦 Límite del banco")
-        lim1, lim2, lim3 = st.columns(3)
-        lim1.metric(f"Máx. cuota bruta ({max_pct*100:.0f}%)", f"{fmt(esc['max_bruto'])}/mes")
+    # --- Límite del banco ---
+    st.header("🏦 Límite del banco")
+    lim1, lim2, lim3 = st.columns(3)
+    lim1.metric(f"Máx. cuota bruta ({max_pct*100:.0f}%)", f"{fmt(esc['max_bruto'])}/mes")
     if not esc["cancelar_madre"]:
         lim2.metric("Resta otra hipoteca", f"-{fmt(esc['resta_otra'])}/mes", help="El banco te resta esta cantidad por ser titular")
     else:
@@ -588,6 +564,7 @@ if st.session_state.pagina == "Calcular":
 
     st.divider()
 
+    # --- Datos de la operación ---
     st.header("📊 Datos de la operación")
     c1, c2, c3 = st.columns(3)
     c1.metric("Total necesario", fmt(esc["total_necesario"]))
@@ -607,6 +584,7 @@ if st.session_state.pagina == "Calcular":
 
     st.divider()
 
+    # --- Gráfica y periodos ---
     col_izq, col_der = st.columns([1, 1])
     with col_izq:
         st.subheader("📈 Evolución mensual")
@@ -629,16 +607,14 @@ if st.session_state.pagina == "Calcular":
 
     st.divider()
 
-    # --- GUARDAR EN SUPABASE ---
+    # --- Guardar en Supabase ---
     st.header("💾 Guardar escenario")
 
-    # Diagnóstico de conexión (colapsado por defecto)
     with st.expander("🔧 Diagnóstico de conexión a Supabase"):
         diagnosticar_supabase()
 
     nombre_guardar = st.text_input("Nombre del escenario", placeholder="Ej: Oferta Santander marzo")
 
-    # Verificar si ya existe
     nombre_limpio = nombre_guardar.strip()
     ya_existe = existe_escenario(nombre_limpio) if nombre_limpio else False
 
@@ -649,7 +625,6 @@ if st.session_state.pagina == "Calcular":
         if nombre_limpio == "":
             st.error("Introduce un nombre para guardar")
         else:
-            # Si existe, eliminar primero
             if ya_existe:
                 eliminar_por_nombre(nombre_limpio)
 
@@ -683,7 +658,6 @@ if st.session_state.pagina == "Calcular":
                 st.error(f"No se pudo guardar en Supabase: {error_msg}")
                 st.warning("Puedes copiar los datos manualmente desde abajo.")
 
-    # Fallback: mostrar JSON copiable siempre
     with st.expander("📋 Ver datos como JSON (copia manual si Supabase falla)"):
         datos_json = {
             "nombre": nombre_guardar if nombre_guardar else "sin_nombre",
@@ -703,6 +677,10 @@ if st.session_state.pagina == "Calcular":
         }
         st.code(json.dumps(datos_json, indent=2, ensure_ascii=False), language="json")
 
+    st.divider()
+
+    # --- ANÁLISIS DE BONIFICACIONES (al final) ---
+    if esc["descuento_total"] > 0:
         st.header("🎁 Análisis de bonificaciones")
         st.markdown("Para cada bonificación activa: cuánto pagas al mes por el producto y cuánto ahorras en la cuota del banco.")
 
@@ -716,7 +694,6 @@ if st.session_state.pagina == "Calcular":
 
         for nombre, activa, pct, coste_mes in bonif_items:
             if activa:
-                # Calcular cuota SIN esta bonificación (manteniendo las demás)
                 descuento_sin_esta = esc["descuento_total"] - pct
                 tipo_sin_esta = max(0.0, tipo_interes_base - descuento_sin_esta)
                 cuota_sin_esta = cuota_hipoteca_fija(esc["cantidad_banco"], tipo_sin_esta, plazo_banco)
@@ -732,10 +709,8 @@ if st.session_state.pagina == "Calcular":
 
         if bonif_data:
             st.table(bonif_data)
-            # Métricas totales
+
             total_coste = sum([coste for _, activa, _, coste in bonif_items if activa])
-            total_ahorro = sum([cuota_hipoteca_fija(esc["cantidad_banco"], max(0.0, tipo_interes_base - (esc["descuento_total"] - pct)), plazo_banco) - esc["cuota_banco"] for _, activa, pct, _ in bonif_items if activa])
-            # Simplificar: recalcular cuota sin NINGUNA bonificación
             cuota_sin_ninguna = cuota_hipoteca_fija(esc["cantidad_banco"], tipo_interes_base, plazo_banco)
             ahorro_total = cuota_sin_ninguna - esc["cuota_banco"]
             balance_total = ahorro_total - total_coste
@@ -749,7 +724,6 @@ if st.session_state.pagina == "Calcular":
 
         st.divider()
 
-        st.divider()
     st.caption("App generada con Streamlit + Supabase.")
 
 
@@ -761,13 +735,12 @@ elif st.session_state.pagina == "Análisis":
     st.title("📊 Análisis de sensibilidad")
     st.markdown("Elige un parámetro y observa cómo varía tu cuota mensual inicial. **Todos los demás parámetros mantienen los valores actuales del sidebar.**")
 
-    # Usar las variables del scope directamente (ya definidas en el sidebar global)
     base_params = {
         "precio_piso": precio_piso,
         "gastos": gastos,
         "aportacion": aportacion,
         "cantidad_banco": cantidad_banco,
-        "tipo_interes": tipo_interes_base * 100,  # el bucle espera % crudo
+        "tipo_interes": tipo_interes_base * 100,
         "plazo_banco": plazo_banco,
         "plazo_tio": plazo_tio,
         "ingresos": ingresos,
@@ -824,7 +797,6 @@ elif st.session_state.pagina == "Análisis":
             rango = st.slider("Rango plazo tío (años)", 5, 20, (8, 15), step=1)
             valores = np.arange(rango[0], rango[1] + 1, 1)
 
-    # Calcular cuota para cada valor
     cuotas = []
     limites = []
     for v in valores:
@@ -854,12 +826,10 @@ elif st.session_state.pagina == "Análisis":
         cuotas.append(esc_temp["gasto_mensual"])
         limites.append(esc_temp["max_efectivo"])
 
-    # Plot
     fig, ax = plt.subplots(figsize=(12, 6))
     ax.plot(valores, cuotas, color="#e74c3c", linewidth=2.5, marker="o", markersize=4, label="Cuota mensual total")
     ax.axhline(y=limites[0], color="purple", linestyle="--", linewidth=2, label=f"Límite banco ({fmt(limites[0])})")
 
-    # Marcar el valor actual (base)
     valor_base = base_params[parametro]
     if parametro in ["aportacion", "cantidad_banco", "plazo_banco", "plazo_tio"]:
         valor_base = int(valor_base)
@@ -882,7 +852,6 @@ elif st.session_state.pagina == "Análisis":
     plt.tight_layout()
     st.pyplot(fig)
 
-    # Tabla de valores
     st.subheader("📋 Valores detallados")
     tabla_data = []
     for i, v in enumerate(valores):
@@ -920,15 +889,11 @@ else:
             tipo_interes = float(r.get("tipo_interes", 0))
             plazo_banco = int(r.get("plazo_banco", 0))
 
-            # Recalcular intereses si no están guardados (datos antiguos)
             if intereses == 0 and cuota_banco > 0 and cantidad_banco > 0 and plazo_banco > 0:
                 total_pagado = cuota_banco * plazo_banco * 12
                 intereses = total_pagado - cantidad_banco
 
-            # Porcentaje de intereses sobre lo pedido
             pct_intereses = (intereses / cantidad_banco * 100) if cantidad_banco > 0 else 0
-
-            # Pedido sin decimales
             pedido_fmt = f"{int(cantidad_banco):,} €".replace(",", ".")
 
             with st.container(border=True):
