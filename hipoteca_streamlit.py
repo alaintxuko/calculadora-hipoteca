@@ -703,7 +703,7 @@ if st.session_state.pagina == "Calcular":
         }
         st.code(json.dumps(datos_json, indent=2, ensure_ascii=False), language="json")
 
-    st.header("🎁 Análisis de bonificaciones")
+        st.header("🎁 Análisis de bonificaciones")
         st.markdown("Para cada bonificación activa: cuánto pagas al mes por el producto y cuánto ahorras en la cuota del banco.")
 
         bonif_data = []
