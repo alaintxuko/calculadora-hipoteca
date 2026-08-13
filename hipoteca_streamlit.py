@@ -571,9 +571,9 @@ if st.session_state.pagina == "Calcular":
     # --- ANÁLISIS DE BONIFICACIONES ---
     if esc["descuento_total"] > 0:
     
-    st.header("🏦 Límite del banco")
-    lim1, lim2, lim3 = st.columns(3)
-    lim1.metric(f"Máx. cuota bruta ({max_pct*100:.0f}%)", f"{fmt(esc['max_bruto'])}/mes")
+	st.header("🏦 Límite del banco")
+	lim1, lim2, lim3 = st.columns(3)
+	lim1.metric(f"Máx. cuota bruta ({max_pct*100:.0f}%)", f"{fmt(esc['max_bruto'])}/mes")
     if not esc["cancelar_madre"]:
         lim2.metric("Resta otra hipoteca", f"-{fmt(esc['resta_otra'])}/mes", help="El banco te resta esta cantidad por ser titular")
     else:
