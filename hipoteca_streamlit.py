@@ -384,6 +384,7 @@ if "cargar_nombre" not in st.session_state:
 #  VALORES POR DEFECTO
 # =============================================================================
 
+# Los costes de bonificación se introducen ANUALES y se dividen por 12 internamente
 defaults = {
     "precio_piso": 365_000, "gastos": 8_500, "aportacion": 100_000,
     "cantidad_banco": 200_000, "tipo_interes": 3.5, "plazo_banco": 30,
@@ -391,8 +392,8 @@ defaults = {
     "otra_cuota": 529, "otra_resto": 31_000, "num_partes": 3,
     "cancelar_madre": False, "plazo_devol_madre": 10,
     "bonif_nomina_activa": False, "bonif_nomina_pct": 0.30,
-    "bonif_hogar_activa": False, "bonif_hogar_pct": 0.10, "bonif_hogar_coste": 25.0,
-    "bonif_vida_activa": False, "bonif_vida_pct": 0.10, "bonif_vida_coste": 15.0,
+    "bonif_hogar_activa": False, "bonif_hogar_pct": 0.10, "bonif_hogar_coste": 300.0,   # 25*12
+    "bonif_vida_activa": False, "bonif_vida_pct": 0.10, "bonif_vida_coste": 180.0,     # 15*12
     "bonif_otro_activa": False, "bonif_otro_pct": 0.05, "bonif_otro_coste": 0.0,
 }
 
@@ -415,15 +416,17 @@ if st.session_state.cargar_nombre is not None:
                                      "plazo_banco", "plazo_tio", "ingresos", "max_pct",
                                      "otra_cuota", "otra_resto", "num_partes", "plazo_devol_madre"]:
                             st.session_state[key] = int(val)
+                        elif key in ["bonif_hogar_coste", "bonif_vida_coste", "bonif_otro_coste"]:
+                            # En BD están mensuales, el input es anual
+                            st.session_state[key] = float(val) * 12
                         else:
-                            # tipo_interes, bonif_*_pct, bonif_*_coste
+                            # tipo_interes, bonif_*_pct
                             st.session_state[key] = float(val)
                 break
     except Exception:
         pass
     st.session_state.cargar_nombre = None
     st.toast("Escenario cargado", icon="✅")
-
 
 
 # =============================================================================
@@ -477,7 +480,7 @@ with st.sidebar:
         plazo_devol_madre = int(defaults["plazo_devol_madre"])
 
     st.subheader("🎁 Bonificaciones")
-    st.markdown("*Marca las que apliques para ver el interés bonificado.*")
+    st.markdown("*Marca las que apliques para ver el interés bonificado. Los costes se introducen en €/año.*")
 
     bonif_nomina_activa = st.checkbox("📋 Nómina", value=defaults["bonif_nomina_activa"], key="bonif_nomina_activa")
     if bonif_nomina_activa:
@@ -488,26 +491,29 @@ with st.sidebar:
     bonif_hogar_activa = st.checkbox("🏠 Seguro de hogar", value=defaults["bonif_hogar_activa"], key="bonif_hogar_activa")
     if bonif_hogar_activa:
         bonif_hogar_pct = st.number_input("Bonificación hogar (%)", value=float(defaults["bonif_hogar_pct"]), step=0.01, min_value=0.0, max_value=2.0, key="bonif_hogar_pct") / 100
-        bonif_hogar_coste = st.number_input("Coste seguro hogar (€/mes)", value=float(defaults["bonif_hogar_coste"]), step=1.0, min_value=0.0, key="bonif_hogar_coste")
+        bonif_hogar_coste_anual = st.number_input("Coste seguro hogar (€/año)", value=float(defaults["bonif_hogar_coste"]), step=12.0, min_value=0.0, key="bonif_hogar_coste")
+        bonif_hogar_coste = bonif_hogar_coste_anual / 12
     else:
         bonif_hogar_pct = float(defaults["bonif_hogar_pct"]) / 100
-        bonif_hogar_coste = float(defaults["bonif_hogar_coste"])
+        bonif_hogar_coste = float(defaults["bonif_hogar_coste"]) / 12
 
     bonif_vida_activa = st.checkbox("❤️ Seguro de vida", value=defaults["bonif_vida_activa"], key="bonif_vida_activa")
     if bonif_vida_activa:
         bonif_vida_pct = st.number_input("Bonificación vida (%)", value=float(defaults["bonif_vida_pct"]), step=0.01, min_value=0.0, max_value=2.0, key="bonif_vida_pct") / 100
-        bonif_vida_coste = st.number_input("Coste seguro vida (€/mes)", value=float(defaults["bonif_vida_coste"]), step=1.0, min_value=0.0, key="bonif_vida_coste")
+        bonif_vida_coste_anual = st.number_input("Coste seguro vida (€/año)", value=float(defaults["bonif_vida_coste"]), step=12.0, min_value=0.0, key="bonif_vida_coste")
+        bonif_vida_coste = bonif_vida_coste_anual / 12
     else:
         bonif_vida_pct = float(defaults["bonif_vida_pct"]) / 100
-        bonif_vida_coste = float(defaults["bonif_vida_coste"])
+        bonif_vida_coste = float(defaults["bonif_vida_coste"]) / 12
 
     bonif_otro_activa = st.checkbox("➕ Otro adicional", value=defaults["bonif_otro_activa"], key="bonif_otro_activa")
     if bonif_otro_activa:
         bonif_otro_pct = st.number_input("Bonificación otro (%)", value=float(defaults["bonif_otro_pct"]), step=0.01, min_value=0.0, max_value=2.0, key="bonif_otro_pct") / 100
-        bonif_otro_coste = st.number_input("Coste otro (€/mes)", value=float(defaults["bonif_otro_coste"]), step=1.0, min_value=0.0, key="bonif_otro_coste")
+        bonif_otro_coste_anual = st.number_input("Coste otro (€/año)", value=float(defaults["bonif_otro_coste"]), step=12.0, min_value=0.0, key="bonif_otro_coste")
+        bonif_otro_coste = bonif_otro_coste_anual / 12
     else:
         bonif_otro_pct = float(defaults["bonif_otro_pct"]) / 100
-        bonif_otro_coste = float(defaults["bonif_otro_coste"])
+        bonif_otro_coste = float(defaults["bonif_otro_coste"]) / 12
 
 
 # =============================================================================
@@ -524,8 +530,6 @@ esc = calcular_escenario(
     bonif_vida_activa, bonif_vida_pct, bonif_vida_coste,
     bonif_otro_activa, bonif_otro_pct, bonif_otro_coste
 )
-
-
 
 
 # =============================================================================
@@ -563,6 +567,55 @@ if st.session_state.pagina == "Calcular":
         cols[3].metric("→ SEGUROS", fmt(esc["coste_seguros_mes"]) if esc["coste_seguros_mes"] > 0 else "0,00 €")
 
     st.divider()
+
+    # --- ANÁLISIS DE BONIFICACIONES ---
+    if esc["descuento_total"] > 0:
+        st.header("🎁 Análisis de bonificaciones")
+        st.markdown("Para cada bonificación activa: cuánto pagas al mes por el producto y cuánto ahorras en la cuota del banco.")
+
+        bonif_data = []
+        bonif_items = [
+            ("Nómina", bonif_nomina_activa, bonif_nomina_pct, 0),
+            ("Seguro de hogar", bonif_hogar_activa, bonif_hogar_pct, bonif_hogar_coste),
+            ("Seguro de vida", bonif_vida_activa, bonif_vida_pct, bonif_vida_coste),
+            ("Otro adicional", bonif_otro_activa, bonif_otro_pct, bonif_otro_coste),
+        ]
+
+        for nombre, activa, pct, coste_mes in bonif_items:
+            if activa:
+                # Calcular cuota SIN esta bonificación (manteniendo las demás)
+                descuento_sin_esta = esc["descuento_total"] - pct
+                tipo_sin_esta = max(0.0, tipo_interes_base - descuento_sin_esta)
+                cuota_sin_esta = cuota_hipoteca_fija(esc["cantidad_banco"], tipo_sin_esta, plazo_banco)
+                ahorro_mes = cuota_sin_esta - esc["cuota_banco"]
+                balance_mes = ahorro_mes - coste_mes
+
+                bonif_data.append({
+                    "Bonificación": nombre,
+                    "Pagas/mes": fmt(coste_mes),
+                    "Ahorras/mes": fmt(ahorro_mes),
+                    "Balance neto/mes": fmt(balance_mes),
+                })
+
+        if bonif_data:
+            st.table(bonif_data)
+            total_pagado_bonif = sum([b["Pagas/mes"] for b in bonif_data if isinstance(b["Pagas/mes"], str)])
+            # No, mejor mostrar métricas
+            total_coste = sum([coste for _, activa, _, coste in bonif_items if activa])
+            total_ahorro = sum([cuota_hipoteca_fija(esc["cantidad_banco"], max(0.0, tipo_interes_base - (esc["descuento_total"] - pct)), plazo_banco) - esc["cuota_banco"] for _, activa, pct, _ in bonif_items if activa])
+            # Simplificar: recalcular cuota sin NINGUNA bonificación
+            cuota_sin_ninguna = cuota_hipoteca_fija(esc["cantidad_banco"], tipo_interes_base, plazo_banco)
+            ahorro_total = cuota_sin_ninguna - esc["cuota_banco"]
+            balance_total = ahorro_total - total_coste
+
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Pagas/mes en bonificaciones", fmt(total_coste))
+            c2.metric("Ahorras/mes en cuota", fmt(ahorro_total))
+            c3.metric("Balance neto/mes", fmt(balance_total), help="Ahorro en cuota menos coste de seguros")
+        else:
+            st.info("No hay bonificaciones activas.")
+
+        st.divider()
 
     st.header("🏦 Límite del banco")
     lim1, lim2, lim3 = st.columns(3)
@@ -657,9 +710,9 @@ if st.session_state.pagina == "Calcular":
                 "otra_cuota": otra_cuota, "otra_resto": otra_resto, "num_partes": num_partes,
                 "cancelar_madre": cancelar_madre, "plazo_devol_madre": plazo_devol_madre,
                 "bonif_nomina_activa": bonif_nomina_activa, "bonif_nomina_pct": round(bonif_nomina_pct * 100, 2),
-                "bonif_hogar_activa": bonif_hogar_activa, "bonif_hogar_pct": round(bonif_hogar_pct * 100, 2), "bonif_hogar_coste": bonif_hogar_coste,
-                "bonif_vida_activa": bonif_vida_activa, "bonif_vida_pct": round(bonif_vida_pct * 100, 2), "bonif_vida_coste": bonif_vida_coste,
-                "bonif_otro_activa": bonif_otro_activa, "bonif_otro_pct": round(bonif_otro_pct * 100, 2), "bonif_otro_coste": bonif_otro_coste,
+                "bonif_hogar_activa": bonif_hogar_activa, "bonif_hogar_pct": round(bonif_hogar_pct * 100, 2), "bonif_hogar_coste": round(bonif_hogar_coste, 2),
+                "bonif_vida_activa": bonif_vida_activa, "bonif_vida_pct": round(bonif_vida_pct * 100, 2), "bonif_vida_coste": round(bonif_vida_coste, 2),
+                "bonif_otro_activa": bonif_otro_activa, "bonif_otro_pct": round(bonif_otro_pct * 100, 2), "bonif_otro_coste": round(bonif_otro_coste, 2),
                 "cuota_banco": round(esc["cuota_banco"], 2), "cuota_tio": round(esc["cuota_tio"], 2),
                 "coste_seguros": round(esc["coste_seguros_mes"], 2), "total_mensual": round(esc["gasto_mensual"], 2),
                 "intereses_totales": round(esc["intereses_totales_banco"], 2),
@@ -688,9 +741,9 @@ if st.session_state.pagina == "Calcular":
             "otra_cuota": otra_cuota, "otra_resto": otra_resto, "num_partes": num_partes,
             "cancelar_madre": cancelar_madre, "plazo_devol_madre": plazo_devol_madre,
             "bonif_nomina_activa": bonif_nomina_activa, "bonif_nomina_pct": round(bonif_nomina_pct * 100, 2),
-            "bonif_hogar_activa": bonif_hogar_activa, "bonif_hogar_pct": round(bonif_hogar_pct * 100, 2), "bonif_hogar_coste": bonif_hogar_coste,
-            "bonif_vida_activa": bonif_vida_activa, "bonif_vida_pct": round(bonif_vida_pct * 100, 2), "bonif_vida_coste": bonif_vida_coste,
-            "bonif_otro_activa": bonif_otro_activa, "bonif_otro_pct": round(bonif_otro_pct * 100, 2), "bonif_otro_coste": bonif_otro_coste,
+            "bonif_hogar_activa": bonif_hogar_activa, "bonif_hogar_pct": round(bonif_hogar_pct * 100, 2), "bonif_hogar_coste": round(bonif_hogar_coste, 2),
+            "bonif_vida_activa": bonif_vida_activa, "bonif_vida_pct": round(bonif_vida_pct * 100, 2), "bonif_vida_coste": round(bonif_vida_coste, 2),
+            "bonif_otro_activa": bonif_otro_activa, "bonif_otro_pct": round(bonif_otro_pct * 100, 2), "bonif_otro_coste": round(bonif_otro_coste, 2),
             "cuota_banco": round(esc["cuota_banco"], 2), "cuota_tio": round(esc["cuota_tio"], 2),
             "coste_seguros": round(esc["coste_seguros_mes"], 2), "total_mensual": round(esc["gasto_mensual"], 2),
             "cumple": esc["cumple"],
@@ -709,36 +762,33 @@ elif st.session_state.pagina == "Análisis":
     st.title("📊 Análisis de sensibilidad")
     st.markdown("Elige un parámetro y observa cómo varía tu cuota mensual inicial. **Todos los demás parámetros mantienen los valores actuales del sidebar.**")
 
-    # Los valores actuales ya están en session_state gracias a los widgets globales del sidebar
-    def get_val(key, default):
-        return st.session_state.get(key, default)
-
+    # Usar las variables del scope directamente (ya definidas en el sidebar global)
     base_params = {
-        "precio_piso": get_val("precio_piso", 365_000),
-        "gastos": get_val("gastos", 8_500),
-        "aportacion": get_val("aportacion", 100_000),
-        "cantidad_banco": get_val("cantidad_banco", 200_000),
-        "tipo_interes": get_val("tipo_interes", 3.5),
-        "plazo_banco": get_val("plazo_banco", 30),
-        "plazo_tio": get_val("plazo_tio", 10),
-        "ingresos": get_val("ingresos", 2_999),
-        "max_pct": get_val("max_pct", 35),
-        "otra_cuota": get_val("otra_cuota", 529),
-        "otra_resto": get_val("otra_resto", 31_000),
-        "num_partes": get_val("num_partes", 3),
-        "cancelar_madre": get_val("cancelar_madre", False),
-        "plazo_devol_madre": get_val("plazo_devol_madre", 10),
-        "bonif_nomina_activa": get_val("bonif_nomina_activa", False),
-        "bonif_nomina_pct": get_val("bonif_nomina_pct", 0.30),
-        "bonif_hogar_activa": get_val("bonif_hogar_activa", False),
-        "bonif_hogar_pct": get_val("bonif_hogar_pct", 0.10),
-        "bonif_hogar_coste": get_val("bonif_hogar_coste", 25.0),
-        "bonif_vida_activa": get_val("bonif_vida_activa", False),
-        "bonif_vida_pct": get_val("bonif_vida_pct", 0.10),
-        "bonif_vida_coste": get_val("bonif_vida_coste", 15.0),
-        "bonif_otro_activa": get_val("bonif_otro_activa", False),
-        "bonif_otro_pct": get_val("bonif_otro_pct", 0.05),
-        "bonif_otro_coste": get_val("bonif_otro_coste", 0.0),
+        "precio_piso": precio_piso,
+        "gastos": gastos,
+        "aportacion": aportacion,
+        "cantidad_banco": cantidad_banco,
+        "tipo_interes": tipo_interes_base * 100,  # el bucle espera % crudo
+        "plazo_banco": plazo_banco,
+        "plazo_tio": plazo_tio,
+        "ingresos": ingresos,
+        "max_pct": max_pct * 100,
+        "otra_cuota": otra_cuota,
+        "otra_resto": otra_resto,
+        "num_partes": num_partes,
+        "cancelar_madre": cancelar_madre,
+        "plazo_devol_madre": plazo_devol_madre,
+        "bonif_nomina_activa": bonif_nomina_activa,
+        "bonif_nomina_pct": bonif_nomina_pct * 100,
+        "bonif_hogar_activa": bonif_hogar_activa,
+        "bonif_hogar_pct": bonif_hogar_pct * 100,
+        "bonif_hogar_coste": bonif_hogar_coste,
+        "bonif_vida_activa": bonif_vida_activa,
+        "bonif_vida_pct": bonif_vida_pct * 100,
+        "bonif_vida_coste": bonif_vida_coste,
+        "bonif_otro_activa": bonif_otro_activa,
+        "bonif_otro_pct": bonif_otro_pct * 100,
+        "bonif_otro_coste": bonif_otro_coste,
     }
 
     col_param, col_range = st.columns([1, 2])
@@ -887,22 +937,22 @@ else:
 
                 with c1:
                     st.markdown(f"<span style='font-size:0.9rem; font-weight:600'>{nombre}</span>", unsafe_allow_html=True)
-                    st.markdown(f"<span style='font-size:0.75rem; color:#fff'>Pedido: {pedido_fmt} | Tipo: {tipo_interes:.2f}% | {plazo_banco} años</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-size:0.75rem; color:#666'>Pedido: {pedido_fmt} | Tipo: {tipo_interes:.2f}% | {plazo_banco} años</span>", unsafe_allow_html=True)
 
                 with c2:
-                    st.markdown(f"<span style='font-size:0.75rem; color:#fff'>Total/mes</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-size:0.75rem; color:#666'>Total/mes</span>", unsafe_allow_html=True)
                     st.markdown(f"<span style='font-size:0.9rem; font-weight:600'>{fmt(cuota_banco + cuota_tio)}</span>", unsafe_allow_html=True)
 
                 with c3:
-                    st.markdown(f"<span style='font-size:0.75rem; color:#fff'>Banco</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-size:0.75rem; color:#666'>Banco</span>", unsafe_allow_html=True)
                     st.markdown(f"<span style='font-size:0.9rem'>{fmt(cuota_banco)}</span>", unsafe_allow_html=True)
 
                 with c4:
-                    st.markdown(f"<span style='font-size:0.75rem; color:#fff'>Tío</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-size:0.75rem; color:#666'>Tío</span>", unsafe_allow_html=True)
                     st.markdown(f"<span style='font-size:0.9rem'>{fmt(cuota_tio)}</span>", unsafe_allow_html=True)
 
                 with c5:
-                    st.markdown(f"<span style='font-size:0.75rem; color:#fff'>Intereses</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-size:0.75rem; color:#666'>Intereses</span>", unsafe_allow_html=True)
                     st.markdown(f"<span style='font-size:0.85rem; color:#e74c3c'>{fmt(intereses)} ({pct_intereses:.1f}%)</span>", unsafe_allow_html=True)
 
                 with c6:
