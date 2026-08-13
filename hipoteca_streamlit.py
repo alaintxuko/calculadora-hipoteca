@@ -570,53 +570,7 @@ if st.session_state.pagina == "Calcular":
 
     # --- ANÁLISIS DE BONIFICACIONES ---
     if esc["descuento_total"] > 0:
-        st.header("🎁 Análisis de bonificaciones")
-        st.markdown("Para cada bonificación activa: cuánto pagas al mes por el producto y cuánto ahorras en la cuota del banco.")
-
-        bonif_data = []
-        bonif_items = [
-            ("Nómina", bonif_nomina_activa, bonif_nomina_pct, 0),
-            ("Seguro de hogar", bonif_hogar_activa, bonif_hogar_pct, bonif_hogar_coste),
-            ("Seguro de vida", bonif_vida_activa, bonif_vida_pct, bonif_vida_coste),
-            ("Otro adicional", bonif_otro_activa, bonif_otro_pct, bonif_otro_coste),
-        ]
-
-        for nombre, activa, pct, coste_mes in bonif_items:
-            if activa:
-                # Calcular cuota SIN esta bonificación (manteniendo las demás)
-                descuento_sin_esta = esc["descuento_total"] - pct
-                tipo_sin_esta = max(0.0, tipo_interes_base - descuento_sin_esta)
-                cuota_sin_esta = cuota_hipoteca_fija(esc["cantidad_banco"], tipo_sin_esta, plazo_banco)
-                ahorro_mes = cuota_sin_esta - esc["cuota_banco"]
-                balance_mes = ahorro_mes - coste_mes
-
-                bonif_data.append({
-                    "Bonificación": nombre,
-                    "Pagas/mes": fmt(coste_mes),
-                    "Ahorras/mes": fmt(ahorro_mes),
-                    "Balance neto/mes": fmt(balance_mes),
-                })
-
-        if bonif_data:
-            st.table(bonif_data)
-            total_pagado_bonif = sum([b["Pagas/mes"] for b in bonif_data if isinstance(b["Pagas/mes"], str)])
-            # No, mejor mostrar métricas
-            total_coste = sum([coste for _, activa, _, coste in bonif_items if activa])
-            total_ahorro = sum([cuota_hipoteca_fija(esc["cantidad_banco"], max(0.0, tipo_interes_base - (esc["descuento_total"] - pct)), plazo_banco) - esc["cuota_banco"] for _, activa, pct, _ in bonif_items if activa])
-            # Simplificar: recalcular cuota sin NINGUNA bonificación
-            cuota_sin_ninguna = cuota_hipoteca_fija(esc["cantidad_banco"], tipo_interes_base, plazo_banco)
-            ahorro_total = cuota_sin_ninguna - esc["cuota_banco"]
-            balance_total = ahorro_total - total_coste
-
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Pagas/mes en bonificaciones", fmt(total_coste))
-            c2.metric("Ahorras/mes en cuota", fmt(ahorro_total))
-            c3.metric("Balance neto/mes", fmt(balance_total), help="Ahorro en cuota menos coste de seguros")
-        else:
-            st.info("No hay bonificaciones activas.")
-
-        st.divider()
-
+    
     st.header("🏦 Límite del banco")
     lim1, lim2, lim3 = st.columns(3)
     lim1.metric(f"Máx. cuota bruta ({max_pct*100:.0f}%)", f"{fmt(esc['max_bruto'])}/mes")
@@ -750,7 +704,53 @@ if st.session_state.pagina == "Calcular":
         }
         st.code(json.dumps(datos_json, indent=2, ensure_ascii=False), language="json")
 
-    st.divider()
+    st.header("🎁 Análisis de bonificaciones")
+        st.markdown("Para cada bonificación activa: cuánto pagas al mes por el producto y cuánto ahorras en la cuota del banco.")
+
+        bonif_data = []
+        bonif_items = [
+            ("Nómina", bonif_nomina_activa, bonif_nomina_pct, 0),
+            ("Seguro de hogar", bonif_hogar_activa, bonif_hogar_pct, bonif_hogar_coste),
+            ("Seguro de vida", bonif_vida_activa, bonif_vida_pct, bonif_vida_coste),
+            ("Otro adicional", bonif_otro_activa, bonif_otro_pct, bonif_otro_coste),
+        ]
+
+        for nombre, activa, pct, coste_mes in bonif_items:
+            if activa:
+                # Calcular cuota SIN esta bonificación (manteniendo las demás)
+                descuento_sin_esta = esc["descuento_total"] - pct
+                tipo_sin_esta = max(0.0, tipo_interes_base - descuento_sin_esta)
+                cuota_sin_esta = cuota_hipoteca_fija(esc["cantidad_banco"], tipo_sin_esta, plazo_banco)
+                ahorro_mes = cuota_sin_esta - esc["cuota_banco"]
+                balance_mes = ahorro_mes - coste_mes
+
+                bonif_data.append({
+                    "Bonificación": nombre,
+                    "Pagas/mes": fmt(coste_mes),
+                    "Ahorras/mes": fmt(ahorro_mes),
+                    "Balance neto/mes": fmt(balance_mes),
+                })
+
+        if bonif_data:
+            st.table(bonif_data)
+            # Métricas totales
+            total_coste = sum([coste for _, activa, _, coste in bonif_items if activa])
+            total_ahorro = sum([cuota_hipoteca_fija(esc["cantidad_banco"], max(0.0, tipo_interes_base - (esc["descuento_total"] - pct)), plazo_banco) - esc["cuota_banco"] for _, activa, pct, _ in bonif_items if activa])
+            # Simplificar: recalcular cuota sin NINGUNA bonificación
+            cuota_sin_ninguna = cuota_hipoteca_fija(esc["cantidad_banco"], tipo_interes_base, plazo_banco)
+            ahorro_total = cuota_sin_ninguna - esc["cuota_banco"]
+            balance_total = ahorro_total - total_coste
+
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Pagas/mes en bonificaciones", fmt(total_coste))
+            c2.metric("Ahorras/mes en cuota", fmt(ahorro_total))
+            c3.metric("Balance neto/mes", fmt(balance_total), help="Ahorro en cuota menos coste de seguros")
+        else:
+            st.info("No hay bonificaciones activas.")
+
+        st.divider()
+
+        st.divider()
     st.caption("App generada con Streamlit + Supabase.")
 
 
