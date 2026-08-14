@@ -435,7 +435,7 @@ with st.sidebar:
 
     st.subheader("El banco")
     cantidad_banco = st.number_input("Cantidad que te da el banco (€)", value=int(defaults["cantidad_banco"]), step=1_000, key="cantidad_banco")
-    tipo_interes_base = st.slider("Tipo de interés anual SIN bonificar (%)", min_value=1.5, max_value=6.0, value=float(defaults["tipo_interes"]), step=0.01, key="tipo_interes") / 100
+    tipo_interes_base = st.slider("Tipo de interés anual SIN bonificar (%)", min_value=2.0, max_value=4.0, value=float(defaults["tipo_interes"]), step=0.01, key="tipo_interes") / 100
     plazo_banco = st.slider("Plazo banco (años)", min_value=20, max_value=40, value=int(defaults["plazo_banco"]), step=1, key="plazo_banco")
 
     st.subheader("El tío")
@@ -778,38 +778,44 @@ elif st.session_state.pagina == "Análisis":
             "tipo_interes": "Tipo de interés (%)",
             "plazo_banco": "Plazo banco (años)",
             "plazo_tio": "Plazo tío (años)",
-        }[x])
+        }[x], key="parametro_analisis")
 
     with col_range:
+        # Keys dinámicas basadas en el valor actual: fuerzan recreación cuando cambia el escenario
         if parametro == "aportacion":
-            actual = base_params["aportacion"]
+            actual = int(base_params["aportacion"])
+            slider_key = f"rango_aportacion_{actual}"
             rango = st.slider("Rango de aportación (€)", 20_000, 200_000,
                               (max(20_000, actual - 30_000), min(200_000, actual + 30_000)),
-                              step=5_000, key="rango_aportacion")
+                              step=5_000, key=slider_key)
             valores = np.arange(rango[0], rango[1] + 1, 5_000)
         elif parametro == "cantidad_banco":
-            actual = base_params["cantidad_banco"]
+            actual = int(base_params["cantidad_banco"])
+            slider_key = f"rango_cantidad_banco_{actual}"
             rango = st.slider("Rango cantidad banco (€)", 100_000, 300_000,
                               (max(100_000, actual - 50_000), min(300_000, actual + 50_000)),
-                              step=5_000, key="rango_cantidad_banco")
+                              step=5_000, key=slider_key)
             valores = np.arange(rango[0], rango[1] + 1, 5_000)
         elif parametro == "tipo_interes":
-            actual = base_params["tipo_interes"]
-            rango = st.slider("Rango de interés (%)", 2.0, 4.0,
-                              (max(2.0, round(actual - 0.5, 2)), min(4.0, round(actual + 0.5, 2))),
-                              step=0.05, key="rango_tipo_interes")
+            actual = round(base_params["tipo_interes"], 2)
+            slider_key = f"rango_tipo_interes_{actual}"
+            rango = st.slider("Rango de interés (%)", 1.5, 6.0,
+                              (max(1.5, round(actual - 0.5, 2)), min(6.0, round(actual + 0.5, 2))),
+                              step=0.05, key=slider_key)
             valores = np.arange(rango[0], rango[1] + 0.001, 0.05)
         elif parametro == "plazo_banco":
-            actual = base_params["plazo_banco"]
+            actual = int(base_params["plazo_banco"])
+            slider_key = f"rango_plazo_banco_{actual}"
             rango = st.slider("Rango plazo banco (años)", 20, 40,
                               (max(20, actual - 5), min(40, actual + 5)),
-                              step=1, key="rango_plazo_banco")
+                              step=1, key=slider_key)
             valores = np.arange(rango[0], rango[1] + 1, 1)
         elif parametro == "plazo_tio":
-            actual = base_params["plazo_tio"]
+            actual = int(base_params["plazo_tio"])
+            slider_key = f"rango_plazo_tio_{actual}"
             rango = st.slider("Rango plazo tío (años)", 5, 20,
                               (max(5, actual - 3), min(20, actual + 3)),
-                              step=1, key="rango_plazo_tio")
+                              step=1, key=slider_key)
             valores = np.arange(rango[0], rango[1] + 1, 1)
 
     cuotas = []
