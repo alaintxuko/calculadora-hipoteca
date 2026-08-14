@@ -435,7 +435,7 @@ with st.sidebar:
 
     st.subheader("El banco")
     cantidad_banco = st.number_input("Cantidad que te da el banco (€)", value=int(defaults["cantidad_banco"]), step=1_000, key="cantidad_banco")
-    tipo_interes_base = st.slider("Tipo de interés anual SIN bonificar (%)", min_value=2.0, max_value=4.0, value=float(defaults["tipo_interes"]), step=0.01, key="tipo_interes") / 100
+    tipo_interes_base = st.slider("Tipo de interés anual SIN bonificar (%)", min_value=1.5, max_value=6.0, value=float(defaults["tipo_interes"]), step=0.01, key="tipo_interes") / 100
     plazo_banco = st.slider("Plazo banco (años)", min_value=20, max_value=40, value=int(defaults["plazo_banco"]), step=1, key="plazo_banco")
 
     st.subheader("El tío")
@@ -735,32 +735,33 @@ elif st.session_state.pagina == "Análisis":
     st.title("📊 Análisis de sensibilidad")
     st.markdown("Elige un parámetro y observa cómo varía tu cuota mensual inicial. **Todos los demás parámetros mantienen los valores actuales del sidebar.**")
 
+    # Leer directamente de session_state para evitar problemas de scope/variable
     base_params = {
-        "precio_piso": precio_piso,
-        "gastos": gastos,
-        "aportacion": aportacion,
-        "cantidad_banco": cantidad_banco,
-        "tipo_interes": tipo_interes_base * 100,
-        "plazo_banco": plazo_banco,
-        "plazo_tio": plazo_tio,
-        "ingresos": ingresos,
-        "max_pct": max_pct * 100,
-        "otra_cuota": otra_cuota,
-        "otra_resto": otra_resto,
-        "num_partes": num_partes,
-        "cancelar_madre": cancelar_madre,
-        "plazo_devol_madre": plazo_devol_madre,
-        "bonif_nomina_activa": bonif_nomina_activa,
-        "bonif_nomina_pct": bonif_nomina_pct * 100,
-        "bonif_hogar_activa": bonif_hogar_activa,
-        "bonif_hogar_pct": bonif_hogar_pct * 100,
-        "bonif_hogar_coste": bonif_hogar_coste,
-        "bonif_vida_activa": bonif_vida_activa,
-        "bonif_vida_pct": bonif_vida_pct * 100,
-        "bonif_vida_coste": bonif_vida_coste,
-        "bonif_otro_activa": bonif_otro_activa,
-        "bonif_otro_pct": bonif_otro_pct * 100,
-        "bonif_otro_coste": bonif_otro_coste,
+        "precio_piso": st.session_state.get("precio_piso", defaults["precio_piso"]),
+        "gastos": st.session_state.get("gastos", defaults["gastos"]),
+        "aportacion": st.session_state.get("aportacion", defaults["aportacion"]),
+        "cantidad_banco": st.session_state.get("cantidad_banco", defaults["cantidad_banco"]),
+        "tipo_interes": st.session_state.get("tipo_interes", defaults["tipo_interes"]),
+        "plazo_banco": st.session_state.get("plazo_banco", defaults["plazo_banco"]),
+        "plazo_tio": st.session_state.get("plazo_tio", defaults["plazo_tio"]),
+        "ingresos": st.session_state.get("ingresos", defaults["ingresos"]),
+        "max_pct": st.session_state.get("max_pct", defaults["max_pct"]),
+        "otra_cuota": st.session_state.get("otra_cuota", defaults["otra_cuota"]),
+        "otra_resto": st.session_state.get("otra_resto", defaults["otra_resto"]),
+        "num_partes": st.session_state.get("num_partes", defaults["num_partes"]),
+        "cancelar_madre": st.session_state.get("cancelar_madre", defaults["cancelar_madre"]),
+        "plazo_devol_madre": st.session_state.get("plazo_devol_madre", defaults["plazo_devol_madre"]),
+        "bonif_nomina_activa": st.session_state.get("bonif_nomina_activa", defaults["bonif_nomina_activa"]),
+        "bonif_nomina_pct": st.session_state.get("bonif_nomina_pct", defaults["bonif_nomina_pct"]),
+        "bonif_hogar_activa": st.session_state.get("bonif_hogar_activa", defaults["bonif_hogar_activa"]),
+        "bonif_hogar_pct": st.session_state.get("bonif_hogar_pct", defaults["bonif_hogar_pct"]),
+        "bonif_hogar_coste": st.session_state.get("bonif_hogar_coste", defaults["bonif_hogar_coste"]),
+        "bonif_vida_activa": st.session_state.get("bonif_vida_activa", defaults["bonif_vida_activa"]),
+        "bonif_vida_pct": st.session_state.get("bonif_vida_pct", defaults["bonif_vida_pct"]),
+        "bonif_vida_coste": st.session_state.get("bonif_vida_coste", defaults["bonif_vida_coste"]),
+        "bonif_otro_activa": st.session_state.get("bonif_otro_activa", defaults["bonif_otro_activa"]),
+        "bonif_otro_pct": st.session_state.get("bonif_otro_pct", defaults["bonif_otro_pct"]),
+        "bonif_otro_coste": st.session_state.get("bonif_otro_coste", defaults["bonif_otro_coste"]),
     }
 
     col_param, col_range = st.columns([1, 2])
@@ -781,42 +782,37 @@ elif st.session_state.pagina == "Análisis":
         }[x], key="parametro_analisis")
 
     with col_range:
-        # Keys dinámicas basadas en el valor actual: fuerzan recreación cuando cambia el escenario
+        # Dos number_input para min/max en lugar de slider de rango (más robusto)
         if parametro == "aportacion":
             actual = int(base_params["aportacion"])
-            slider_key = f"rango_aportacion_{actual}"
-            rango = st.slider("Rango de aportación (€)", 20_000, 200_000,
-                              (max(20_000, actual - 30_000), min(200_000, actual + 30_000)),
-                              step=5_000, key=slider_key)
-            valores = np.arange(rango[0], rango[1] + 1, 5_000)
+            c1, c2 = st.columns(2)
+            min_val = c1.number_input("Mínimo (€)", value=max(20_000, actual - 30_000), step=5_000, min_value=20_000, max_value=200_000, key="min_aportacion")
+            max_val = c2.number_input("Máximo (€)", value=min(200_000, actual + 30_000), step=5_000, min_value=20_000, max_value=200_000, key="max_aportacion")
+            valores = np.arange(min_val, max_val + 1, 5_000)
         elif parametro == "cantidad_banco":
             actual = int(base_params["cantidad_banco"])
-            slider_key = f"rango_cantidad_banco_{actual}"
-            rango = st.slider("Rango cantidad banco (€)", 100_000, 300_000,
-                              (max(100_000, actual - 50_000), min(300_000, actual + 50_000)),
-                              step=5_000, key=slider_key)
-            valores = np.arange(rango[0], rango[1] + 1, 5_000)
+            c1, c2 = st.columns(2)
+            min_val = c1.number_input("Mínimo (€)", value=max(100_000, actual - 50_000), step=5_000, min_value=100_000, max_value=300_000, key="min_cantidad_banco")
+            max_val = c2.number_input("Máximo (€)", value=min(300_000, actual + 50_000), step=5_000, min_value=100_000, max_value=300_000, key="max_cantidad_banco")
+            valores = np.arange(min_val, max_val + 1, 5_000)
         elif parametro == "tipo_interes":
             actual = round(base_params["tipo_interes"], 2)
-            slider_key = f"rango_tipo_interes_{actual}"
-            rango = st.slider("Rango de interés (%)", 1.5, 6.0,
-                              (max(1.5, round(actual - 0.5, 2)), min(6.0, round(actual + 0.5, 2))),
-                              step=0.05, key=slider_key)
-            valores = np.arange(rango[0], rango[1] + 0.001, 0.05)
+            c1, c2 = st.columns(2)
+            min_val = c1.number_input("Mínimo (%)", value=max(1.5, round(actual - 0.5, 2)), step=0.05, min_value=1.5, max_value=6.0, key="min_tipo_interes")
+            max_val = c2.number_input("Máximo (%)", value=min(6.0, round(actual + 0.5, 2)), step=0.05, min_value=1.5, max_value=6.0, key="max_tipo_interes")
+            valores = np.arange(min_val, max_val + 0.001, 0.05)
         elif parametro == "plazo_banco":
             actual = int(base_params["plazo_banco"])
-            slider_key = f"rango_plazo_banco_{actual}"
-            rango = st.slider("Rango plazo banco (años)", 20, 40,
-                              (max(20, actual - 5), min(40, actual + 5)),
-                              step=1, key=slider_key)
-            valores = np.arange(rango[0], rango[1] + 1, 1)
+            c1, c2 = st.columns(2)
+            min_val = c1.number_input("Mínimo (años)", value=max(20, actual - 5), step=1, min_value=20, max_value=40, key="min_plazo_banco")
+            max_val = c2.number_input("Máximo (años)", value=min(40, actual + 5), step=1, min_value=20, max_value=40, key="max_plazo_banco")
+            valores = np.arange(min_val, max_val + 1, 1)
         elif parametro == "plazo_tio":
             actual = int(base_params["plazo_tio"])
-            slider_key = f"rango_plazo_tio_{actual}"
-            rango = st.slider("Rango plazo tío (años)", 5, 20,
-                              (max(5, actual - 3), min(20, actual + 3)),
-                              step=1, key=slider_key)
-            valores = np.arange(rango[0], rango[1] + 1, 1)
+            c1, c2 = st.columns(2)
+            min_val = c1.number_input("Mínimo (años)", value=max(5, actual - 3), step=1, min_value=5, max_value=20, key="min_plazo_tio")
+            max_val = c2.number_input("Máximo (años)", value=min(20, actual + 3), step=1, min_value=5, max_value=20, key="max_plazo_tio")
+            valores = np.arange(min_val, max_val + 1, 1)
 
     cuotas = []
     limites = []
