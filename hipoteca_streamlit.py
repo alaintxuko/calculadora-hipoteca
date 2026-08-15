@@ -833,6 +833,15 @@ elif st.session_state.pagina == "Analisis":
             max_val = c2.number_input("Maximo (anos)", value=min(30, actual + 3), step=1, min_value=1, max_value=30)
             valores = np.arange(min_val, max_val + 1, 1)
 
+    # Mapeo: nombre en UI -> clave en diccionario p
+    param_key = {
+        "aportacion": "aportacion",
+        "cantidad_banco": "cantidad_banco",
+        "tipo_interes": "tipo_interes_base",
+        "plazo_banco": "plazo_banco",
+        "plazo_tio": "plazo_tio",
+    }[parametro]
+
     cuotas = []
     limites = []
     for v in valores:
@@ -866,7 +875,7 @@ elif st.session_state.pagina == "Analisis":
     ax.plot(valores, cuotas, color="#e74c3c", linewidth=2.5, marker="o", markersize=4, label="Cuota mensual total")
     ax.axhline(y=limites[0], color="purple", linestyle="--", linewidth=2, label=f"Limite banco ({fmt(limites[0])})")
 
-    valor_base = p[parametro]
+    valor_base = p[param_key]
     if parametro in ["aportacion", "cantidad_banco", "plazo_banco", "plazo_tio"]:
         valor_base = int(valor_base)
     elif parametro == "tipo_interes":
