@@ -436,69 +436,71 @@ if st.session_state.cargar_nombre is not None:
 
 st.sidebar.title("🧭 Navegacion")
 pagina = st.sidebar.radio("Ir a", ["Calcular", "Analisis", "Mis escenarios"],
-    index=0 if st.session_state.pagina == "Calcular" else (1 if st.session_state.pagina == "Analisis" else 2))
+    index=0 if st.session_state.pagina == "Calcular" else (1 if st.session_state.pagina == "Analisis" else 2),
+    key="nav_pagina")
 
 if pagina != st.session_state.pagina:
     st.session_state.pagina = pagina
-    st.rerun()
 
 
 # =============================================================================
-#  SIDEBAR - INPUTS GLOBALES (unica fuente de verdad: session_state)
+#  SIDEBAR - INPUTS GLOBALES
+#  Usamos key en los widgets, SIN value. Streamlit lee/escribe session_state
+#  automaticamente. Inicializamos arriba para que los widgets tengan valor.
 # =============================================================================
 
 with st.sidebar:
     st.header("⚙️ Parametros")
 
     st.subheader("El piso")
-    st.number_input("Precio del piso (€)", value=int(st.session_state["precio_piso"]), step=1000, key="precio_piso")
-    st.number_input("Gastos (notaria, registro, ITP...) (€)", value=int(st.session_state["gastos"]), step=500, key="gastos")
-    st.number_input("Tu aportacion neta (€)", value=int(st.session_state["aportacion"]), step=1000, key="aportacion")
+    st.number_input("Precio del piso (€)", step=1000, key="precio_piso")
+    st.number_input("Gastos (notaria, registro, ITP...) (€)", step=500, key="gastos")
+    st.number_input("Tu aportacion neta (€)", step=1000, key="aportacion")
 
     st.subheader("El banco")
-    st.number_input("Cantidad que te da el banco (€)", value=int(st.session_state["cantidad_banco"]), step=1000, key="cantidad_banco")
-    st.slider("Tipo de interes anual SIN bonificar (%)", min_value=1.5, max_value=6.0, value=float(st.session_state["tipo_interes"]), step=0.01, key="tipo_interes")
-    st.slider("Plazo banco (anos)", min_value=20, max_value=40, value=int(st.session_state["plazo_banco"]), step=1, key="plazo_banco")
+    st.number_input("Cantidad que te da el banco (€)", step=1000, key="cantidad_banco")
+    st.slider("Tipo de interes anual SIN bonificar (%)", min_value=1.5, max_value=6.0, step=0.01, key="tipo_interes")
+    st.slider("Plazo banco (anos)", min_value=20, max_value=40, step=1, key="plazo_banco")
 
     st.subheader("El tio")
-    st.slider("Plazo tio (anos)", min_value=5, max_value=20, value=int(st.session_state["plazo_tio"]), step=1, key="plazo_tio")
+    st.slider("Plazo tio (anos)", min_value=5, max_value=20, step=1, key="plazo_tio")
 
     st.subheader("Tus ingresos")
-    st.number_input("Ingresos netos mensuales (€)", value=int(st.session_state["ingresos"]), step=50, key="ingresos")
-    st.slider("Maxima cuota banco (% de ingresos)", min_value=30, max_value=50, value=int(st.session_state["max_pct"]), step=1, key="max_pct")
+    st.number_input("Ingresos netos mensuales (€)", step=50, key="ingresos")
+    st.slider("Maxima cuota banco (% de ingresos)", min_value=30, max_value=50, step=1, key="max_pct")
 
     st.subheader("Otra hipoteca (madre/hermana)")
     st.markdown("*La paga tu madre, pero el banco te resta capacidad por ser titular.*")
-    st.number_input("Cuota total mensual (€)", value=int(st.session_state["otra_cuota"]), step=10, key="otra_cuota")
-    st.number_input("Capital pendiente (€)", value=int(st.session_state["otra_resto"]), step=1000, key="otra_resto")
-    st.number_input("Numero de titulares", value=int(st.session_state["num_partes"]), step=1, min_value=1, key="num_partes")
+    st.number_input("Cuota total mensual (€)", step=10, key="otra_cuota")
+    st.number_input("Capital pendiente (€)", step=1000, key="otra_resto")
+    st.number_input("Numero de titulares", step=1, min_value=1, key="num_partes")
 
     st.subheader("¿Cancelar la hipoteca de la madre?")
-    st.checkbox(f"Si, cancelarla (le doy {fmt(st.session_state['otra_resto'])} y me los devuelve)", value=st.session_state["cancelar_madre"], key="cancelar_madre")
+    st.checkbox("Si, cancelarla (le doy el capital pendiente y me lo devuelve)", key="cancelar_madre")
     if st.session_state["cancelar_madre"]:
-        st.slider("Plazo devolucion madre (anos)", min_value=3, max_value=15, value=int(st.session_state["plazo_devol_madre"]), step=1, key="plazo_devol_madre")
+        st.slider("Plazo devolucion madre (anos)", min_value=3, max_value=15, step=1, key="plazo_devol_madre")
 
     st.subheader("🎁 Bonificaciones")
     st.markdown("*Marca las que apliques. Los costes se introducen en €/ano.*")
 
-    st.checkbox("📋 Nomina", value=st.session_state["bonif_nomina_activa"], key="bonif_nomina_activa")
+    st.checkbox("📋 Nomina", key="bonif_nomina_activa")
     if st.session_state["bonif_nomina_activa"]:
-        st.number_input("Bonificacion nomina (%)", value=float(st.session_state["bonif_nomina_pct"]), step=0.01, min_value=0.0, max_value=2.0, key="bonif_nomina_pct")
+        st.number_input("Bonificacion nomina (%)", step=0.01, min_value=0.0, max_value=2.0, key="bonif_nomina_pct")
 
-    st.checkbox("🏠 Seguro de hogar", value=st.session_state["bonif_hogar_activa"], key="bonif_hogar_activa")
+    st.checkbox("🏠 Seguro de hogar", key="bonif_hogar_activa")
     if st.session_state["bonif_hogar_activa"]:
-        st.number_input("Bonificacion hogar (%)", value=float(st.session_state["bonif_hogar_pct"]), step=0.01, min_value=0.0, max_value=2.0, key="bonif_hogar_pct")
-        st.number_input("Coste seguro hogar (€/ano)", value=float(st.session_state["bonif_hogar_coste"]), step=12.0, min_value=0.0, key="bonif_hogar_coste")
+        st.number_input("Bonificacion hogar (%)", step=0.01, min_value=0.0, max_value=2.0, key="bonif_hogar_pct")
+        st.number_input("Coste seguro hogar (€/ano)", step=12.0, min_value=0.0, key="bonif_hogar_coste")
 
-    st.checkbox("❤️ Seguro de vida", value=st.session_state["bonif_vida_activa"], key="bonif_vida_activa")
+    st.checkbox("❤️ Seguro de vida", key="bonif_vida_activa")
     if st.session_state["bonif_vida_activa"]:
-        st.number_input("Bonificacion vida (%)", value=float(st.session_state["bonif_vida_pct"]), step=0.01, min_value=0.0, max_value=2.0, key="bonif_vida_pct")
-        st.number_input("Coste seguro vida (€/ano)", value=float(st.session_state["bonif_vida_coste"]), step=12.0, min_value=0.0, key="bonif_vida_coste")
+        st.number_input("Bonificacion vida (%)", step=0.01, min_value=0.0, max_value=2.0, key="bonif_vida_pct")
+        st.number_input("Coste seguro vida (€/ano)", step=12.0, min_value=0.0, key="bonif_vida_coste")
 
-    st.checkbox("➕ Otro adicional", value=st.session_state["bonif_otro_activa"], key="bonif_otro_activa")
+    st.checkbox("➕ Otro adicional", key="bonif_otro_activa")
     if st.session_state["bonif_otro_activa"]:
-        st.number_input("Bonificacion otro (%)", value=float(st.session_state["bonif_otro_pct"]), step=0.01, min_value=0.0, max_value=2.0, key="bonif_otro_pct")
-        st.number_input("Coste otro (€/ano)", value=float(st.session_state["bonif_otro_coste"]), step=12.0, min_value=0.0, key="bonif_otro_coste")
+        st.number_input("Bonificacion otro (%)", step=0.01, min_value=0.0, max_value=2.0, key="bonif_otro_pct")
+        st.number_input("Coste otro (€/ano)", step=12.0, min_value=0.0, key="bonif_otro_coste")
 
 
 # =============================================================================
@@ -796,39 +798,39 @@ elif st.session_state.pagina == "Analisis":
             "tipo_interes": "Tipo de interes (%)",
             "plazo_banco": "Plazo banco (anos)",
             "plazo_tio": "Plazo tio (anos)",
-        }[x], key="parametro_analisis")
+        }[x])
 
     with col_range:
         # Leer el valor actual ya normalizado de get_params()
         if parametro == "aportacion":
             actual = int(p["aportacion"])
             c1, c2 = st.columns(2)
-            min_val = c1.number_input("Minimo (€)", value=max(20000, actual - 30000), step=5000, min_value=20000, max_value=200000, key="min_aportacion")
-            max_val = c2.number_input("Maximo (€)", value=min(200000, actual + 30000), step=5000, min_value=20000, max_value=200000, key="max_aportacion")
+            min_val = c1.number_input("Minimo (€)", value=max(20000, actual - 30000), step=5000, min_value=20000, max_value=200000)
+            max_val = c2.number_input("Maximo (€)", value=min(200000, actual + 30000), step=5000, min_value=20000, max_value=200000)
             valores = np.arange(min_val, max_val + 1, 5000)
         elif parametro == "cantidad_banco":
             actual = int(p["cantidad_banco"])
             c1, c2 = st.columns(2)
-            min_val = c1.number_input("Minimo (€)", value=max(100000, actual - 50000), step=5000, min_value=100000, max_value=300000, key="min_cantidad_banco")
-            max_val = c2.number_input("Maximo (€)", value=min(300000, actual + 50000), step=5000, min_value=100000, max_value=300000, key="max_cantidad_banco")
+            min_val = c1.number_input("Minimo (€)", value=max(100000, actual - 50000), step=5000, min_value=100000, max_value=300000)
+            max_val = c2.number_input("Maximo (€)", value=min(300000, actual + 50000), step=5000, min_value=100000, max_value=300000)
             valores = np.arange(min_val, max_val + 1, 5000)
         elif parametro == "tipo_interes":
             actual = round(p["tipo_interes_base"] * 100, 2)
             c1, c2 = st.columns(2)
-            min_val = c1.number_input("Minimo (%)", value=max(1.5, round(actual - 0.5, 2)), step=0.05, min_value=0.01, max_value=10.0, key="min_tipo_interes")
-            max_val = c2.number_input("Maximo (%)", value=min(10.0, round(actual + 0.5, 2)), step=0.05, min_value=0.01, max_value=10.0, key="max_tipo_interes")
+            min_val = c1.number_input("Minimo (%)", value=max(0.01, round(actual - 0.5, 2)), step=0.05, min_value=0.01, max_value=10.0)
+            max_val = c2.number_input("Maximo (%)", value=min(10.0, round(actual + 0.5, 2)), step=0.05, min_value=0.01, max_value=10.0)
             valores = np.arange(min_val, max_val + 0.001, 0.05)
         elif parametro == "plazo_banco":
             actual = int(p["plazo_banco"])
             c1, c2 = st.columns(2)
-            min_val = c1.number_input("Minimo (anos)", value=max(20, actual - 5), step=1, min_value=5, max_value=40, key="min_plazo_banco")
-            max_val = c2.number_input("Maximo (anos)", value=min(40, actual + 5), step=1, min_value=5, max_value=40, key="max_plazo_banco")
+            min_val = c1.number_input("Minimo (anos)", value=max(5, actual - 5), step=1, min_value=5, max_value=40)
+            max_val = c2.number_input("Maximo (anos)", value=min(40, actual + 5), step=1, min_value=5, max_value=40)
             valores = np.arange(min_val, max_val + 1, 1)
         elif parametro == "plazo_tio":
             actual = int(p["plazo_tio"])
             c1, c2 = st.columns(2)
-            min_val = c1.number_input("Minimo (anos)", value=max(5, actual - 3), step=1, min_value=1, max_value=30, key="min_plazo_tio")
-            max_val = c2.number_input("Maximo (anos)", value=min(30, actual + 3), step=1, min_value=1, max_value=30, key="max_plazo_tio")
+            min_val = c1.number_input("Minimo (anos)", value=max(1, actual - 3), step=1, min_value=1, max_value=30)
+            max_val = c2.number_input("Maximo (anos)", value=min(30, actual + 3), step=1, min_value=1, max_value=30)
             valores = np.arange(min_val, max_val + 1, 1)
 
     cuotas = []
