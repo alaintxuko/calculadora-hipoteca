@@ -420,14 +420,6 @@ if pagina != st.session_state.pagina:
     st.session_state.pagina = pagina
     st.rerun()
 
-# --- FIX: detectar cambio de pagina y marcar si entramos en Analisis ---
-pagina_actual = st.session_state.pagina
-if pagina_actual != st.session_state.get("_pagina_previa"):
-    st.session_state._pagina_previa = pagina_actual
-    if pagina_actual == "Análisis":
-        st.session_state._necesita_rerun_analisis = True
-# ------------------------------------------------------------------------
-
 
 # =============================================================================
 #  SIDEBAR - INPUTS GLOBALES (siempre existen)
@@ -741,42 +733,37 @@ if st.session_state.pagina == "Calcular":
 
 elif st.session_state.pagina == "Análisis":
 
-    # --- FIX: forzar rerun la primera vez que entramos para sincronizar session_state ---
-    if st.session_state.get("_necesita_rerun_analisis", False):
-        st.session_state._necesita_rerun_analisis = False
-        st.rerun()
-    # ------------------------------------------------------------------------------------
-
     st.title("📊 Análisis de sensibilidad")
     st.markdown("Elige un parámetro y observa cómo varía tu cuota mensual inicial. **Todos los demás parámetros mantienen los valores actuales del sidebar.**")
 
-    # Leer directamente de session_state para evitar problemas de scope/variable
+    # Usar las variables locales del sidebar (ya normalizadas: tipo_interes en decimal,
+    # max_pct en decimal, bonif_xxx_pct en decimal, bonif_xxx_coste en mensual)
     base_params = {
-        "precio_piso": st.session_state.get("precio_piso", defaults["precio_piso"]),
-        "gastos": st.session_state.get("gastos", defaults["gastos"]),
-        "aportacion": st.session_state.get("aportacion", defaults["aportacion"]),
-        "cantidad_banco": st.session_state.get("cantidad_banco", defaults["cantidad_banco"]),
-        "tipo_interes": st.session_state.get("tipo_interes", defaults["tipo_interes"]),
-        "plazo_banco": st.session_state.get("plazo_banco", defaults["plazo_banco"]),
-        "plazo_tio": st.session_state.get("plazo_tio", defaults["plazo_tio"]),
-        "ingresos": st.session_state.get("ingresos", defaults["ingresos"]),
-        "max_pct": st.session_state.get("max_pct", defaults["max_pct"]),
-        "otra_cuota": st.session_state.get("otra_cuota", defaults["otra_cuota"]),
-        "otra_resto": st.session_state.get("otra_resto", defaults["otra_resto"]),
-        "num_partes": st.session_state.get("num_partes", defaults["num_partes"]),
-        "cancelar_madre": st.session_state.get("cancelar_madre", defaults["cancelar_madre"]),
-        "plazo_devol_madre": st.session_state.get("plazo_devol_madre", defaults["plazo_devol_madre"]),
-        "bonif_nomina_activa": st.session_state.get("bonif_nomina_activa", defaults["bonif_nomina_activa"]),
-        "bonif_nomina_pct": st.session_state.get("bonif_nomina_pct", defaults["bonif_nomina_pct"]),
-        "bonif_hogar_activa": st.session_state.get("bonif_hogar_activa", defaults["bonif_hogar_activa"]),
-        "bonif_hogar_pct": st.session_state.get("bonif_hogar_pct", defaults["bonif_hogar_pct"]),
-        "bonif_hogar_coste": st.session_state.get("bonif_hogar_coste", defaults["bonif_hogar_coste"]),
-        "bonif_vida_activa": st.session_state.get("bonif_vida_activa", defaults["bonif_vida_activa"]),
-        "bonif_vida_pct": st.session_state.get("bonif_vida_pct", defaults["bonif_vida_pct"]),
-        "bonif_vida_coste": st.session_state.get("bonif_vida_coste", defaults["bonif_vida_coste"]),
-        "bonif_otro_activa": st.session_state.get("bonif_otro_activa", defaults["bonif_otro_activa"]),
-        "bonif_otro_pct": st.session_state.get("bonif_otro_pct", defaults["bonif_otro_pct"]),
-        "bonif_otro_coste": st.session_state.get("bonif_otro_coste", defaults["bonif_otro_coste"]),
+        "precio_piso": precio_piso,
+        "gastos": gastos,
+        "aportacion": aportacion,
+        "cantidad_banco": cantidad_banco,
+        "tipo_interes": tipo_interes_base,
+        "plazo_banco": plazo_banco,
+        "plazo_tio": plazo_tio,
+        "ingresos": ingresos,
+        "max_pct": max_pct,
+        "otra_cuota": otra_cuota,
+        "otra_resto": otra_resto,
+        "num_partes": num_partes,
+        "cancelar_madre": cancelar_madre,
+        "plazo_devol_madre": plazo_devol_madre,
+        "bonif_nomina_activa": bonif_nomina_activa,
+        "bonif_nomina_pct": bonif_nomina_pct,
+        "bonif_hogar_activa": bonif_hogar_activa,
+        "bonif_hogar_pct": bonif_hogar_pct,
+        "bonif_hogar_coste": bonif_hogar_coste,
+        "bonif_vida_activa": bonif_vida_activa,
+        "bonif_vida_pct": bonif_vida_pct,
+        "bonif_vida_coste": bonif_vida_coste,
+        "bonif_otro_activa": bonif_otro_activa,
+        "bonif_otro_pct": bonif_otro_pct,
+        "bonif_otro_coste": bonif_otro_coste,
     }
 
     col_param, col_range = st.columns([1, 2])
@@ -846,14 +833,14 @@ elif st.session_state.pagina == "Análisis":
 
         esc_temp = calcular_escenario(
             p["precio_piso"], p["gastos"], p["aportacion"], p["cantidad_banco"],
-            p["tipo_interes"] / 100, p["plazo_banco"], p["plazo_tio"],
-            p["ingresos"], p["max_pct"] / 100,
+            p["tipo_interes"], p["plazo_banco"], p["plazo_tio"],
+            p["ingresos"], p["max_pct"],
             p["otra_cuota"], p["otra_resto"], p["num_partes"],
             p["cancelar_madre"], p["plazo_devol_madre"],
-            p["bonif_nomina_activa"], p["bonif_nomina_pct"] / 100,
-            p["bonif_hogar_activa"], p["bonif_hogar_pct"] / 100, p["bonif_hogar_coste"],
-            p["bonif_vida_activa"], p["bonif_vida_pct"] / 100, p["bonif_vida_coste"],
-            p["bonif_otro_activa"], p["bonif_otro_pct"] / 100, p["bonif_otro_coste"]
+            p["bonif_nomina_activa"], p["bonif_nomina_pct"],
+            p["bonif_hogar_activa"], p["bonif_hogar_pct"], p["bonif_hogar_coste"],
+            p["bonif_vida_activa"], p["bonif_vida_pct"], p["bonif_vida_coste"],
+            p["bonif_otro_activa"], p["bonif_otro_pct"], p["bonif_otro_coste"]
         )
         cuotas.append(esc_temp["gasto_mensual"])
         limites.append(esc_temp["max_efectivo"])
