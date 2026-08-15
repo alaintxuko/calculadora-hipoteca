@@ -1003,9 +1003,9 @@ elif st.session_state.pagina == "Amortizacion":
                     st.subheader("📊 Resultados")
 
                     c1, c2, c3 = st.columns(3)
-                    c1.metric("Sin amortizar", f"{fmt(intereses_sin)} en intereses", f"{meses_restantes} meses")
-                    c2.metric("Acortar plazo", f"{fmt(intereses_acortar)} en intereses", f"Ahorras {fmt(ahorro_acortar)}", delta=f"-{meses_ahorrados} meses")
-                    c3.metric("Reducir cuota", f"{fmt(intereses_reducir)} en intereses", f"Ahorras {fmt(ahorro_reducir)}", delta=f"-{fmt(ahorro_mensual)}/mes")
+                    c1.metric("Sin amortizar", f"{fmt(intereses_sin)} en intereses", f"{meses_restantes} meses restantes")
+                    c2.metric("Acortar plazo", f"{fmt(intereses_acortar)} en intereses", f"Ahorro: {fmt(ahorro_acortar)} | -{meses_ahorrados} meses")
+                    c3.metric("Reducir cuota", f"{fmt(intereses_reducir)} en intereses", f"Ahorro: {fmt(ahorro_reducir)} | -{fmt(ahorro_mensual)}/mes")
 
                     st.divider()
                     st.subheader("📈 Comparativa visual")
