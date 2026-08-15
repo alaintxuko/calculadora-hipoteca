@@ -420,6 +420,14 @@ if pagina != st.session_state.pagina:
     st.session_state.pagina = pagina
     st.rerun()
 
+# --- FIX: detectar cambio de pagina y marcar si entramos en Analisis ---
+pagina_actual = st.session_state.pagina
+if pagina_actual != st.session_state.get("_pagina_previa"):
+    st.session_state._pagina_previa = pagina_actual
+    if pagina_actual == "Análisis":
+        st.session_state._necesita_rerun_analisis = True
+# ------------------------------------------------------------------------
+
 
 # =============================================================================
 #  SIDEBAR - INPUTS GLOBALES (siempre existen)
@@ -732,6 +740,13 @@ if st.session_state.pagina == "Calcular":
 # =============================================================================
 
 elif st.session_state.pagina == "Análisis":
+
+    # --- FIX: forzar rerun la primera vez que entramos para sincronizar session_state ---
+    if st.session_state.get("_necesita_rerun_analisis", False):
+        st.session_state._necesita_rerun_analisis = False
+        st.rerun()
+    # ------------------------------------------------------------------------------------
+
     st.title("📊 Análisis de sensibilidad")
     st.markdown("Elige un parámetro y observa cómo varía tu cuota mensual inicial. **Todos los demás parámetros mantienen los valores actuales del sidebar.**")
 
