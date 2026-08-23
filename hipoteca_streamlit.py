@@ -949,8 +949,8 @@ elif st.session_state.pagina == "Amortizacion":
 
     with col_der:
         st.subheader("📅 Fechas")
-        fecha_inicio = st.date_input("Fecha inicio de la hipoteca", value=date(hoy.year-1, hoy.month, 1), key="amort_fecha_inicio")
-        fecha_actual = st.date_input("Fecha actual", value=hoy, key="amort_fecha_actual")
+        fecha_inicio = st.date_input("Fecha inicio de la hipoteca", value=date(hoy.year-1, hoy.month, 1), min_value=date(1900, 1, 1), max_value=date(2100, 12, 31), key="amort_fecha_inicio")
+        fecha_actual = st.date_input("Fecha actual", value=hoy, min_value=date(1900, 1, 1), max_value=date(2100, 12, 31), key="amort_fecha_actual")
 
     # =============================================================================
     #  CALCULOS (fuera de columnas, ancho completo)
