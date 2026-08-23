@@ -934,149 +934,150 @@ elif st.session_state.pagina == "Amortizacion":
     hoy = date.today()
 
     # =============================================================================
-    #  INPUTS
+    #  INPUTS (2 columnas)
     # =============================================================================
 
-    col1, col2 = st.columns(2)
-    with col1:
+    col_izq, col_der = st.columns(2)
+    with col_izq:
         st.subheader("📋 Datos de la hipoteca")
         cap_inicial = st.number_input("Capital prestado (€)", value=int(p["cantidad_banco"]), step=1000, key="amort_capital")
         tipo_int = st.slider("Tipo de interes anual (%)", min_value=0.5, max_value=6.0, value=round(p["tipo_interes_base"]*100, 2), step=0.01, key="amort_tipo")
         plazo_anos = st.slider("Plazo total (anos)", min_value=5, max_value=40, value=int(p["plazo_banco"]), step=1, key="amort_plazo")
-        fecha_inicio = st.date_input("Fecha inicio de la hipoteca", value=date(hoy.year-1, hoy.month, 1), key="amort_fecha_inicio")
-        fecha_actual = st.date_input("Fecha actual", value=hoy, key="amort_fecha_actual")
 
         st.subheader("💶 Amortizacion")
         cantidad_amortizar = st.number_input("Cantidad a amortizar (€)", value=10000, step=1000, min_value=1000, key="amort_cantidad")
 
-    with col2:
-        st.subheader("📊 Situacion actual")
+    with col_der:
+        st.subheader("📅 Fechas")
+        fecha_inicio = st.date_input("Fecha inicio de la hipoteca", value=date(hoy.year-1, hoy.month, 1), key="amort_fecha_inicio")
+        fecha_actual = st.date_input("Fecha actual", value=hoy, key="amort_fecha_actual")
 
-        if fecha_actual < fecha_inicio:
-            st.error("La fecha actual no puede ser anterior a la fecha de inicio.")
+    # =============================================================================
+    #  CALCULOS (fuera de columnas, ancho completo)
+    # =============================================================================
+
+    if fecha_actual < fecha_inicio:
+        st.error("La fecha actual no puede ser anterior a la fecha de inicio.")
+    else:
+        meses_pasados = (fecha_actual.year - fecha_inicio.year) * 12 + (fecha_actual.month - fecha_inicio.month)
+        meses_pasados = max(0, meses_pasados)
+
+        r_mensual = (tipo_int / 100) / 12
+        n_total = plazo_anos * 12
+        meses_pasados = min(meses_pasados, n_total)
+
+        if cap_inicial <= 0 or tipo_int <= 0 or plazo_anos <= 0:
+            st.error("Los datos de la hipoteca deben ser mayores que cero.")
         else:
-            meses_pasados = (fecha_actual.year - fecha_inicio.year) * 12 + (fecha_actual.month - fecha_inicio.month)
-            meses_pasados = max(0, meses_pasados)
+            cuota_original = cuota_hipoteca_fija(cap_inicial, tipo_int / 100, plazo_anos)
+            pendiente = capital_pendiente(cap_inicial, tipo_int / 100, plazo_anos, meses_pasados)
+            meses_restantes = n_total - meses_pasados
 
-            r_mensual = (tipo_int / 100) / 12
-            n_total = plazo_anos * 12
-            meses_pasados = min(meses_pasados, n_total)
+            if cantidad_amortizar > pendiente:
+                st.warning(f"La cantidad a amortizar ({fmt(cantidad_amortizar)}) supera el capital pendiente ({fmt(pendiente)}). Se usara el capital pendiente.")
+                cantidad_amortizar = pendiente
 
-            if cap_inicial <= 0 or tipo_int <= 0 or plazo_anos <= 0:
-                st.error("Los datos de la hipoteca deben ser mayores que cero.")
-            else:
-                cuota_original = cuota_hipoteca_fija(cap_inicial, tipo_int / 100, plazo_anos)
-                pendiente = capital_pendiente(cap_inicial, tipo_int / 100, plazo_anos, meses_pasados)
-                meses_restantes = n_total - meses_pasados
+            if cantidad_amortizar > 0 and pendiente > 0 and meses_restantes > 0:
+                # --- SIN AMORTIZAR ---
+                total_sin = cuota_original * meses_restantes
+                intereses_sin = total_sin - pendiente
 
-                m1, m2 = st.columns(2)
-                m1.metric("Cuota mensual", fmt(cuota_original))
-                m2.metric("Capital pendiente", fmt(pendiente))
-                m3, m4 = st.columns(2)
-                m3.metric("Meses transcurridos", f"{meses_pasados}")
-                m4.metric("Meses restantes", f"{meses_restantes}")
+                # --- ACORTAR PLAZO ---
+                nuevo_capital = pendiente - cantidad_amortizar
+                ratio = r_mensual * nuevo_capital / cuota_original
+                if ratio >= 1.0 or nuevo_capital <= 0:
+                    meses_exactos_acortar = 0.0
+                else:
+                    meses_exactos_acortar = -math.log(1 - ratio) / math.log(1 + r_mensual)
+                meses_exactos_acortar = max(0.0, meses_exactos_acortar)
+                meses_redondeado_acortar = math.ceil(meses_exactos_acortar)
 
-                if cantidad_amortizar > pendiente:
-                    st.warning(f"La cantidad a amortizar ({fmt(cantidad_amortizar)}) supera el capital pendiente ({fmt(pendiente)}). Se usara el capital pendiente.")
-                    cantidad_amortizar = pendiente
+                total_acortar = cuota_original * meses_exactos_acortar
+                intereses_acortar = total_acortar - nuevo_capital
+                ahorro_acortar = intereses_sin - intereses_acortar
+                meses_ahorrados = meses_restantes - meses_exactos_acortar
 
-                if cantidad_amortizar > 0 and pendiente > 0 and meses_restantes > 0:
-                    # --- CALCULOS ---
+                # --- REDUCIR CUOTA ---
+                nueva_cuota = cuota_hipoteca_fija(nuevo_capital, tipo_int / 100, meses_restantes / 12)
+                total_reducir = nueva_cuota * meses_restantes
+                intereses_reducir = total_reducir - nuevo_capital
+                ahorro_reducir = intereses_sin - intereses_reducir
+                ahorro_mensual = cuota_original - nueva_cuota
 
-                    # Sin amortizar
-                    total_sin = cuota_original * meses_restantes
-                    intereses_sin = total_sin - pendiente
+                # =============================================================================
+                #  SITUACION ACTUAL
+                # =============================================================================
 
-                    # Acortar plazo
-                    nuevo_capital = pendiente - cantidad_amortizar
-                    ratio = r_mensual * nuevo_capital / cuota_original
-                    if ratio >= 1.0 or nuevo_capital <= 0:
-                        meses_exactos_acortar = 0.0
-                    else:
-                        meses_exactos_acortar = -math.log(1 - ratio) / math.log(1 + r_mensual)
-                    meses_exactos_acortar = max(0.0, meses_exactos_acortar)
-                    meses_redondeado_acortar = math.ceil(meses_exactos_acortar)
+                st.divider()
+                st.subheader("📊 Situacion actual")
 
-                    total_acortar = cuota_original * meses_exactos_acortar
-                    intereses_acortar = total_acortar - nuevo_capital
-                    ahorro_acortar = intereses_sin - intereses_acortar
-                    meses_ahorrados = meses_restantes - meses_exactos_acortar
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Capital pendiente", fmt(pendiente))
+                m2.metric("Cuota mensual", fmt(cuota_original))
+                m3.metric("Meses restantes", str(meses_restantes))
+                m4.metric("Intereses restantes", fmt(intereses_sin))
 
-                    # Reducir cuota
-                    nueva_cuota = cuota_hipoteca_fija(nuevo_capital, tipo_int / 100, meses_restantes / 12)
-                    total_reducir = nueva_cuota * meses_restantes
-                    intereses_reducir = total_reducir - nuevo_capital
-                    ahorro_reducir = intereses_sin - intereses_reducir
-                    ahorro_mensual = cuota_original - nueva_cuota
+                # =============================================================================
+                #  RESULTADOS: ACORTAR PLAZO
+                # =============================================================================
 
-                    st.divider()
-                    st.subheader("🎯 Resultados de amortizar")
+                st.divider()
+                st.markdown("### 🏃 Acortar plazo — misma cuota, menos meses")
 
-                    # Opcion 1: Acortar plazo
-                    st.markdown("#### 🏃 Acortar plazo (misma cuota, menos meses)")
-                    a1, a2, a3, a4 = st.columns(4)
-                    a1.metric("Intereses restantes", fmt(intereses_acortar))
-                    a2.metric("Ahorro en intereses", fmt(ahorro_acortar), delta=f"-{fmt(ahorro_acortar)}")
-                    a3.metric("Meses restantes", str(meses_redondeado_acortar))
-                    a4.metric("Meses ahorrados", f"{meses_ahorrados:.1f}", delta=f"-{meses_ahorrados:.1f}")
+                a1, a2, a3 = st.columns(3)
+                a1.metric("Intereses restantes", fmt(intereses_acortar))
+                a2.metric("Ahorro en intereses", fmt(ahorro_acortar), delta=f"-{fmt(ahorro_acortar)}")
+                a3.metric("Meses ahorrados", f"{meses_ahorrados:.1f}", delta=f"-{meses_ahorrados:.1f}")
 
-                    # Opcion 2: Reducir cuota
-                    st.markdown("#### 🐢 Reducir cuota (mismos meses, cuota menor)")
-                    r1, r2, r3, r4 = st.columns(4)
-                    r1.metric("Intereses restantes", fmt(intereses_reducir))
-                    r2.metric("Ahorro en intereses", fmt(ahorro_reducir), delta=f"-{fmt(ahorro_reducir)}")
-                    r3.metric("Nueva cuota", fmt(nueva_cuota), delta=f"-{fmt(ahorro_mensual)}")
-                    r4.metric("Cuota actual", fmt(cuota_original))
+                # =============================================================================
+                #  RESULTADOS: REDUCIR CUOTA
+                # =============================================================================
 
-                    # Comparativa visual
-                    st.divider()
-                    st.subheader("📈 Comparativa de intereses restantes")
+                st.markdown("### 🐢 Reducir cuota — mismos meses, cuota menor")
 
-                    fig, ax = plt.subplots(figsize=(10, 5))
-                    categorias = ["Sin amortizar", "Acortar plazo", "Reducir cuota"]
-                    intereses_vals = [intereses_sin, intereses_acortar, intereses_reducir]
-                    colores = ["#95a5a6", "#e74c3c", "#3498db"]
+                r1, r2, r3 = st.columns(3)
+                r1.metric("Intereses restantes", fmt(intereses_reducir))
+                r2.metric("Ahorro en intereses", fmt(ahorro_reducir), delta=f"-{fmt(ahorro_reducir)}")
+                r3.metric("Ahorro mensual", fmt(ahorro_mensual), delta=f"-{fmt(ahorro_mensual)}")
 
-                    bars = ax.bar(categorias, intereses_vals, color=colores, alpha=0.8)
-                    ax.set_ylabel("Intereses restantes (€)")
-                    ax.set_title("Intereses a pagar desde hoy segun opcion de amortizacion")
+                # =============================================================================
+                #  GRAFICA COMPARATIVA
+                # =============================================================================
 
-                    for bar, val in zip(bars, intereses_vals):
-                        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(intereses_vals)*0.01,
-                                fmt(val), ha="center", va="bottom", fontweight="bold")
+                st.divider()
+                st.subheader("📈 Comparativa de intereses restantes")
 
-                    plt.tight_layout()
-                    st.pyplot(fig)
+                fig, ax = plt.subplots(figsize=(10, 5))
+                categorias = ["Sin amortizar", "Acortar plazo", "Reducir cuota"]
+                intereses_vals = [intereses_sin, intereses_acortar, intereses_reducir]
+                colores = ["#95a5a6", "#e74c3c", "#3498db"]
 
-                    # Tabla resumen limpia
-                    st.divider()
-                    st.subheader("📋 Resumen detallado")
+                bars = ax.bar(categorias, intereses_vals, color=colores, alpha=0.8)
+                ax.set_ylabel("Intereses restantes (€)")
+                ax.set_title("Intereses a pagar desde hoy segun opcion de amortizacion")
 
-                    st.markdown("**Situacion actual**")
-                    st.json({
-                        "Capital pendiente": fmt(pendiente),
-                        "Cuota mensual": fmt(cuota_original),
-                        "Meses restantes": meses_restantes,
-                        "Intereses restantes (sin amortizar)": fmt(intereses_sin),
-                    })
+                for bar, val in zip(bars, intereses_vals):
+                    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(intereses_vals)*0.01,
+                            fmt(val), ha="center", va="bottom", fontweight="bold")
 
-                    st.markdown("**Tras amortizar " + fmt(cantidad_amortizar) + "**")
-                    st.json({
-                        "Nuevo capital": fmt(nuevo_capital),
-                        "Opcion Acortar plazo": {
-                            "Intereses restantes": fmt(intereses_acortar),
-                            "Ahorro en intereses": fmt(ahorro_acortar),
-                            "Meses restantes (exacto)": round(meses_exactos_acortar, 1),
-                            "Meses restantes (redondeado)": meses_redondeado_acortar,
-                            "Meses ahorrados": round(meses_ahorrados, 1),
-                        },
-                        "Opcion Reducir cuota": {
-                            "Intereses restantes": fmt(intereses_reducir),
-                            "Ahorro en intereses": fmt(ahorro_reducir),
-                            "Nueva cuota mensual": fmt(nueva_cuota),
-                            "Ahorro mensual": fmt(ahorro_mensual),
-                        }
-                    })
+                plt.tight_layout()
+                st.pyplot(fig)
+
+                # =============================================================================
+                #  TABLA RESUMEN
+                # =============================================================================
+
+                st.divider()
+                st.subheader("📋 Resumen detallado")
+
+                tabla_resumen = [
+                    {"Opcion": "Sin amortizar", "Intereses restantes": fmt(intereses_sin), "Cuota mensual": fmt(cuota_original), "Meses restantes": str(meses_restantes), "Ahorro total": "—"},
+                    {"Opcion": "Acortar plazo", "Intereses restantes": fmt(intereses_acortar), "Cuota mensual": fmt(cuota_original), "Meses restantes": str(meses_redondeado_acortar), "Ahorro total": fmt(ahorro_acortar)},
+                    {"Opcion": "Reducir cuota", "Intereses restantes": fmt(intereses_reducir), "Cuota mensual": fmt(nueva_cuota), "Meses restantes": str(meses_restantes), "Ahorro total": fmt(ahorro_reducir)},
+                ]
+                st.table(tabla_resumen)
+
+                st.caption(f"Capital amortizado: {fmt(cantidad_amortizar)}  |  Nuevo capital: {fmt(nuevo_capital)}")
 # =============================================================================
 #  PAGINA: MIS ESCENARIOS
 # =============================================================================
